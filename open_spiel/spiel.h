@@ -35,17 +35,12 @@
 
 namespace open_spiel {
 
-// Player ids are 0, 1, 2, ...
-// Negative numbers are used for various special values.
+// Player IDs are 0, 1, 2, ...
 enum PlayerId {
-  // The fixed player id for chance/nature.
-  kChancePlayerId = -1,
-  // What is returned as a player id when the game is simultaneous.
-  kSimultaneousPlayerId = -2,
-  // Invalid player.
-  kInvalidPlayer = -3,
-  // What is returned as the player id on terminal nodes.
-  kTerminalPlayerId = -4
+  kChancePlayerId       = -1,       // The fixed player id for chance/nature.
+  kSimultaneousPlayerId = -2,       // What is returned as a player id when the game is simultaneous.
+  kInvalidPlayer        = -3,       // Invalid player.
+  kTerminalPlayerId     = -4        // What is returned as the player id on terminal nodes.
 };
 
 // Constant representing an invalid action.
@@ -59,12 +54,9 @@ inline constexpr Action kInvalidAction = -1;
 // The number of players is not considered part of this static game type,
 // because this depends on the parameterization. See Game::NumPlayers.
 struct GameType {
-  // A short name with no spaces that uniquely identifies the game, e.g.
-  // "msoccer". This is the key used to distinguish games.
-  std::string short_name;
 
-  // A long human-readable name, e.g. "Markov Soccer".
-  std::string long_name;
+  std::string short_name;   // A short name with no spaces that uniquely identifies the game.
+  std::string long_name;    // A long human-readable name, e.g. "Markov Soccer".
 
   // Is the game one-player-at-a-time or do players act simultaneously?
   enum class Dynamics {
@@ -80,10 +72,8 @@ struct GameType {
   // stochastic.
   enum class ChanceMode {
     kDeterministic,       // No chance nodes
-    kExplicitStochastic,  // Has at least one chance node, all with
-                          // deterministic ApplyAction()
-    kSampledStochastic,   // At least one chance node with non-deterministic
-                          // ApplyAction()
+    kExplicitStochastic,  // Has at least one chance node, all with deterministic ApplyAction()
+    kSampledStochastic,   // At least one chance node with non-deterministic ApplyAction()
   };
   ChanceMode chance_mode;
 
@@ -140,8 +130,8 @@ enum class StateType {
   kChance,    // If the player to act equals kChanceId.
   kDecision,  // If a player other than kChanceId is acting.
 };
-std::ostream& operator<<(std::ostream& os, const StateType& type);
 
+std::ostream& operator<<(std::ostream& os, const StateType& type);
 std::ostream& operator<<(std::ostream& stream, GameType::Dynamics value);
 std::ostream& operator<<(std::ostream& stream, GameType::ChanceMode value);
 std::ostream& operator<<(std::ostream& stream, GameType::Information value);

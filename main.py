@@ -12,6 +12,7 @@ from open_spiel.python import policy
 from open_spiel.python.algorithms import deep_cfr, exploitability
 
 games = [
+    'klondike',
     #'blotto',
     #'bridge_uncontested_bidding',
     #'catch',
@@ -19,7 +20,7 @@ games = [
     #'deep_sea',
     #'first_sealed_auction',
     #'kuhn_poker',
-    'leduc_poker',
+    #'leduc_poker',
     #'liars_dice',
     #'matching_pennies_3p',
     #'phantom_ttt',
@@ -27,7 +28,6 @@ games = [
     #'tiny_bridge_4p',
     #'tiny_hanabi',
 ]
-
 
 
 game = pyspiel.load_game(games[0])

@@ -47,6 +47,8 @@ set(GAME_SOURCES
   havannah.h
   hex.cc
   hex.h
+  klondike.cc
+  klondike.h
   kuhn_poker.cc
   kuhn_poker.h
   laser_tag.cc
@@ -247,6 +249,11 @@ add_test(havannah_test havannah_test)
 add_executable(hex_test hex_test.cc ${OPEN_SPIEL_OBJECTS}
                $<TARGET_OBJECTS:tests>)
 add_test(hex_test hex_test)
+
+add_executable(klondike_test klondike_test.cc ${OPEN_SPIEL_OBJECTS}
+               $<TARGET_OBJECTS:tests>
+               $<TARGET_OBJECTS:algorithms>)
+add_test(klondike_test klondike_test)
 
 add_executable(kuhn_poker_test kuhn_poker_test.cc ${OPEN_SPIEL_OBJECTS}
                $<TARGET_OBJECTS:tests>
