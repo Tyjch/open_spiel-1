@@ -27,26 +27,25 @@
 namespace open_spiel {
     namespace klondike {
         namespace {
-            constexpr double kAnte = 1;
             const GameType kGameType{
-                /*short_name=*/"klondike",
-                /*long_name=*/"Klondike Solitaire",
+                "klondike",
+                "Klondike Solitaire",
                 GameType::Dynamics::kSequential,
                 GameType::ChanceMode::kExplicitStochastic,
                 GameType::Information::kImperfectInformation,
-                GameType::Utility::kZeroSum,
-                GameType::RewardModel::kTerminal,
-                /*max_num_players=*/10,
-                /*min_num_players=*/2,
-                /*provides_information_state_string=*/true,
-                /*provides_information_state_tensor=*/true,
-                /*provides_observation_string=*/true,
-                /*provides_observation_tensor=*/true,
-                /*parameter_specification=*/
-                {{"players", GameParameter(kDefaultPlayers)}}};
+                GameType::Utility::kConstantSum,
+                GameType::RewardModel::kRewards,
+                1,
+                1,
+                true,
+                true,
+                true,
+                true,
+                {{"players", GameParameter(kDefaultPlayers)}}
+            };
 
             std::shared_ptr<const Game> Factory(const GameParameters& params) {
-                std::cout << "leduc_poker.Factory" << std::endl;
+                std::cout << "Factory" << std::endl;
                 return std::shared_ptr<const Game>(new KlondikeGame(params));
             }
 
@@ -54,599 +53,124 @@ namespace open_spiel {
 
         } // namespace
 
-        KlondikeState::KlondikeState(std::shared_ptr<const Game> game) :
-            State(game),
-            cur_player_(kChancePlayerId),
-            num_calls_(0),
-            num_raises_(0),
-            round_(1),                                                // Round number (1 or 2).
-            stakes_(1),                                               // The current 'level' of the bet.
-            num_winners_(-1),
-            pot_(kAnte * game->NumPlayers()),                         // Number of chips in the pot.
-            public_card_(kInvalidCard),                               // Number of cards remaining; not equal deck_.size()!
-            deck_size_((game->NumPlayers() + 1) * kNumSuits),
-            private_cards_dealt_(0),
-            remaining_players_(game->NumPlayers()),                   // Is this player a winner? Indexed by pid.
-            winner_(game->NumPlayers(), false),                    // Each player's single private card. Indexed by pid.
-            private_cards_(game->NumPlayers(), kInvalidCard),         // How much money each player has, indexed by pid.
-            money_(game->NumPlayers(), kStartingMoney - kAnte),    // How much each player has contributed to the pot, indexed by pid.
-            ante_(game->NumPlayers(), kAnte),                         // Flag for whether the player has folded, indexed by pid.
-            folded_(game->NumPlayers(), false),                    // Sequence of actions for each round. Needed to report information state.
-            round1_sequence_(),
-            round2_sequence_() {                                      // Cards by value (0-6 for standard 2-player game, kInvalidCard if no longer in the deck.)
-                deck_.resize(deck_size_);
-                std::iota(deck_.begin(), deck_.end(), 0);
-            }
+        // KlondikeState Methods =======================================================================================
 
-        int                     KlondikeState::CurrentPlayer() const {
-            std::cout << "KlondikeState::CurrentPlayer()" << std::endl;
-            if (IsTerminal()) {
-                return kTerminalPlayerId;
-            } else {
-                return cur_player_;
-            }
+        KlondikeState::KlondikeState(std::shared_ptr<const Game> game) : State(game), current_player(kChancePlayerId) {};
+
+        int                 KlondikeState::CurrentPlayer() const {
+            // IsTerminal -> kTerminalPlayerId
+            // !is_setup  -> kChancePlayerId
+            // else       -> player 0
+            return 0;
         }
 
-        void                    KlondikeState::DoApplyAction(Action move) {
+        std::string         KlondikeState::ActionToString(Player player, Action move) const {
+            std::string result = "ActionToString()";
+            return result;
+        }
+
+        std::string         KlondikeState::ToString() const {
+            std::string result = "ToString()";
+            return result;
+        }
+
+        std::string         KlondikeState::InformationStateString(Player player) const {
+            // Information state is card then bets.
+            std::string result = "InformationStateString()";
+            return result;
+        }
+
+        std::string         KlondikeState::ObservationString(Player player) const {
+            // Observation is card then contribution of each players to the pot.
+            std::string result = "ObservationString";
+            return result;
+        }
+
+        void                KlondikeState::DoApplyAction(Action move) {
             // In a chance node, `move` should be the card to deal to the current underlying player.
             // On a player node, it should be ActionType::{kFold, kCall, kRaise}
             std::cout << "KlondikeState::DoApplyAction()" << std::endl;
-            if (IsChanceNode()) {
-                SPIEL_CHECK_GE(move, 0);
-                SPIEL_CHECK_LT(move, deck_.size());
-                SPIEL_CHECK_NE(deck_[move], kInvalidCard);
-
-                if (private_cards_dealt_ < num_players_) {
-                    SetPrivate(private_cards_dealt_, move);
-                } else {
-                    // Round 2: A single public card.
-                    public_card_ = deck_[move];
-                    deck_[move] = kInvalidCard;
-                    deck_size_--;
-
-                    // We have finished the public card, let's bet!
-                    cur_player_ = NextPlayer();
-                }
-            } else if (move == ActionType::kFold) {
-                SPIEL_CHECK_NE(cur_player_, kChancePlayerId);
-                SequenceAppendMove(ActionType::kFold);
-
-                // Player is now out.
-                folded_[cur_player_] = true;
-                remaining_players_--;
-
-                if (IsTerminal()) {
-                    ResolveWinner();
-                } else if (ReadyForNextRound()) {
-                    NewRound();
-                } else {
-                    cur_player_ = NextPlayer();
-                }
-            } else if (move == ActionType::kCall) {
-                SPIEL_CHECK_NE(cur_player_, kChancePlayerId);
-
-                // Current player puts in an amount of money equal to the current level
-                // (stakes) minus what they have contributed to level their contribution
-                // off. Note: this action also acts as a 'check' where the stakes are equal
-                // to each player's ante.
-                SPIEL_CHECK_GE(stakes_, ante_[cur_player_]);
-                int amount = stakes_ - ante_[cur_player_];
-                Ante(cur_player_, amount);
-                num_calls_++;
-                SequenceAppendMove(ActionType::kCall);
-
-                if (IsTerminal()) {
-                    ResolveWinner();
-                } else if (ReadyForNextRound()) {
-                    NewRound();
-                } else {
-                    cur_player_ = NextPlayer();
-                }
-            } else if (move == ActionType::kRaise) {
-                SPIEL_CHECK_NE(cur_player_, kChancePlayerId);
-
-                // This player matches the current stakes and then brings the stakes up.
-                SPIEL_CHECK_LT(num_raises_, kMaxRaises);
-                int call_amount = stakes_ - ante_[cur_player_];
-
-                // First, match the current stakes if necessary
-                SPIEL_CHECK_GE(call_amount, 0);
-                if (call_amount > 0) {
-                    Ante(cur_player_, call_amount);
-                }
-
-                // Now, raise the stakes.
-                int raise_amount = (round_ == 1 ? kFirstRaiseAmount : kSecondRaiseAmount);
-                stakes_ += raise_amount;
-                Ante(cur_player_, raise_amount);
-                num_raises_++;
-                num_calls_ = 0;
-                SequenceAppendMove(ActionType::kRaise);
-
-                if (IsTerminal()) {
-                    ResolveWinner();
-                } else {
-                    cur_player_ = NextPlayer();
-                }
-            } else {
-                SpielFatalError(absl::StrCat("Move ", move, " is invalid. ChanceNode?",
-                                             IsChanceNode()));
-            }
         }
 
-        std::vector<Action>     KlondikeState::LegalActions() const {
-            std::cout << "KlondikeState::LegalActions()" << std::endl;
-            if (IsTerminal()) return {};
-            std::vector<Action> movelist;
-            if (IsChanceNode()) {
-                for (int card = 0; card < deck_.size(); card++) {
-                    if (deck_[card] != kInvalidCard) movelist.push_back(card);
-                }
-                return movelist;
-            }
-
-            // Can't just randomly fold; only allow fold when under pressure.
-            if (stakes_ > ante_[cur_player_]) {
-                movelist.push_back(ActionType::kFold);
-            }
-
-            // Can always call/check
-            movelist.push_back(ActionType::kCall);
-
-            if (num_raises_ < 2) {
-                movelist.push_back(ActionType::kRaise);
-            }
-
-            return movelist;
-        }
-
-        std::string             KlondikeState::ActionToString(Player player, Action move) const {
-            std::cout << "KlondikeState::ActionToString()" << std::endl;
-            if (player == kChancePlayerId)
-                return absl::StrCat("Chance outcome:", move);
-            else if (move == ActionType::kFold)
-                return "Fold";
-            else if (move == ActionType::kCall)
-                return "Call";
-            else if (move == ActionType::kRaise)
-                return "Raise";
-            else
-                SpielFatalError(
-                        absl::StrCat("Error in KlondikeState::ActionToString(). Available actions "
-                                     "are 0, 1, 2, not ",
-                                     move));
-        }
-
-        std::string             KlondikeState::ToString() const {
-            std::cout << "KlondikeState::ToString()" << std::endl;
-
-            std::string result;
-
-            absl::StrAppend(&result, "Round: ", round_, "\nPlayer: ", cur_player_,
-                            "\nPot: ", pot_, "\nMoney (p1 p2 ...):");
-            for (auto p = Player{0}; p < num_players_; p++) {
-                absl::StrAppend(&result, " ", money_[p]);
-            }
-            absl::StrAppend(&result, "\nCards (public p1 p2 ...): ", public_card_, " ");
-            for (Player player_index = 0; player_index < num_players_; player_index++) {
-                absl::StrAppend(&result, private_cards_[player_index], " ");
-            }
-
-            absl::StrAppend(&result, "\nRound 1 sequence: ");
-            absl::StrAppend(&result, absl::StrJoin(round1_sequence_, " "));
-
-            absl::StrAppend(&result, "\nRound 2 sequence: ");
-            absl::StrAppend(&result, absl::StrJoin(round2_sequence_, " "));
-
-            absl::StrAppend(&result, "\n");
-
-            return result;
-        }
-
-        bool                    KlondikeState::IsTerminal() const {
-            std::cout << "KlondikeState::IsTerminal()" << std::endl;
-            return remaining_players_ == 1 || (round_ == 2 && ReadyForNextRound());
-        }
-
-        std::vector<double>     KlondikeState::Returns() const {
-            std::cout << "KlondikeState::Returns()" << std::endl;
-            if (!IsTerminal()) {
-                return std::vector<double>(num_players_, 0.0);
-            }
-
-            std::vector<double> returns(num_players_);
-            for (auto player = Player{0}; player < num_players_; ++player) {
-                // Money vs money at start.
-                returns[player] = money_[player] - kStartingMoney;
-            }
-
-            return returns;
-        }
-
-        std::string             KlondikeState::InformationStateString(Player player) const {
-            // Information state is card then bets.
-            std::cout << "KlondikeState::InformationStateString()" << std::endl;
-            SPIEL_CHECK_GE(player, 0);
-            SPIEL_CHECK_LT(player, num_players_);
-            // TODO(author1): Fix typos in InformationState string.
-            return absl::StrFormat(
-                    "[Round %i][Player: %i][Pot: %i][Money: %s[Private: %i]][Round1]: "
-                    "%s[Public: %i]\nRound 2 sequence: %s",
-                    round_, cur_player_, pot_, absl::StrJoin(money_, " "),
-                    private_cards_[player], absl::StrJoin(round1_sequence_, " "),
-                    public_card_, absl::StrJoin(round2_sequence_, " "));
-        }
-
-        std::string             KlondikeState::ObservationString(Player player) const {
-            // Observation is card then contribution of each players to the pot.
-            std::cout << "KlondikeState::ObservationString()" << std::endl;
-            SPIEL_CHECK_GE(player, 0);
-            SPIEL_CHECK_LT(player, num_players_);
-            std::string result;
-
-            absl::StrAppend(&result, "[Round ", round_, "][Player: ", cur_player_,
-                            "][Pot: ", pot_, "][Money:");
-            for (auto p = Player{0}; p < num_players_; p++) {
-                absl::StrAppend(&result, " ", money_[p]);
-            }
-            // Add the player's private cards
-            if (player != kChancePlayerId) {
-                absl::StrAppend(&result, "[Private: ", private_cards_[player], "]");
-            }
-            // Adding the contribution of each players to the pot
-            absl::StrAppend(&result, "[Ante:");
-            for (auto p = Player{0}; p < num_players_; p++) {
-                absl::StrAppend(&result, " ", ante_[p]);
-            }
-            absl::StrAppend(&result, "]");
-
-            return result;
-        }
-
-        void                    KlondikeState::InformationStateTensor(Player player, std::vector<double>* values) const {
+        void                KlondikeState::InformationStateTensor(Player player, std::vector<double>* values) const {
             std::cout << "KlondikeState::InformationStateTensor()" << std::endl;
-            SPIEL_CHECK_GE(player, 0);
-            SPIEL_CHECK_LT(player, num_players_);
-
-            values->resize(game_->InformationStateTensorShape()[0]);
-            std::fill(values->begin(), values->end(), 0.);
-
-            // Layout of observation:
-            //   my player number: num_players bits
-            //   my card: deck_.size() bits
-            //   public card: deck_.size() bits
-            //   first round sequence: (max round seq length)*2 bits
-            //   second round sequence: (max round seq length)*2 bits
-
-            int offset = 0;
-
-            // Mark who I am.
-            (*values)[player] = 1;
-            offset += num_players_;
-
-            if (private_cards_[player] >= 0) {
-                (*values)[offset + private_cards_[player]] = 1;
-            }
-            offset += deck_.size();
-
-            if (public_card_ >= 0) {
-                (*values)[offset + public_card_] = 1;
-            }
-            offset += deck_.size();
-
-            for (int r = 1; r <= 2; r++) {
-                const std::vector<int>& round_sequence =
-                        (r == 1 ? round1_sequence_ : round2_sequence_);
-
-                for (int i = 0; i < round_sequence.size(); ++i) {
-                    SPIEL_CHECK_LT(offset + i + 1, values->size());
-                    if (round_sequence[i] == ActionType::kCall) {
-                        // Encode call as 10.
-                        (*values)[offset + (2 * i)] = 1;
-                        (*values)[offset + (2 * i) + 1] = 0;
-                    } else if (round_sequence[i] == ActionType::kRaise) {
-                        // Encode raise as 01.
-                        (*values)[offset + (2 * i)] = 0;
-                        (*values)[offset + (2 * i) + 1] = 1;
-                    } else {
-                        // Encode fold as 00.
-                        (*values)[offset + (2 * i)] = 0;
-                        (*values)[offset + (2 * i) + 1] = 0;
-                    }
-                }
-
-                // Move offset up to the next round: 2 bits per move.
-                offset += game_->MaxGameLength();
-            }
         }
 
-        void                    KlondikeState::ObservationTensor(Player player, std::vector<double>* values) const {
+        void                KlondikeState::ObservationTensor(Player player, std::vector<double>* values) const {
             std::cout << "KlondikeState::ObservationTensor()" << std::endl;
-            SPIEL_CHECK_GE(player, 0);
-            SPIEL_CHECK_LT(player, num_players_);
-
-            values->resize(game_->ObservationTensorShape()[0]);
-            std::fill(values->begin(), values->end(), 0.);
-
-            // Layout of observation:
-            //   my player number: num_players bits
-            //   my card: deck_.size() bits
-            //   public card: deck_.size() bits
-            //   the contribution of each player to the pot. num_players integers.
-
-            int offset = 0;
-
-            // Mark who I am.
-            (*values)[player] = 1;
-            offset += num_players_;
-
-            if (private_cards_[player] >= 0) {
-                (*values)[offset + private_cards_[player]] = 1;
-            }
-            offset += deck_.size();
-
-            if (public_card_ >= 0) {
-                (*values)[offset + public_card_] = 1;
-            }
-            offset += deck_.size();
-            // Adding the contribution of each players to the pot.
-            for (auto p = Player{0}; p < num_players_; p++) {
-                (*values)[offset + p] = ante_[p];
-            }
+            return {1}
         }
 
-        std::unique_ptr<State>  KlondikeState::Clone() const {
+        bool                KlondikeState::IsTerminal() const {
+            std::cout << "KlondikeState::IsTerminal()" << std::endl;
+            return false;
+        }
+
+        std::unique_ptr<State>                  KlondikeState::Clone() const {
             std::cout << "KlondikeState::Clone()" << std::endl;
             return std::unique_ptr<State>(new KlondikeState(*this));
         }
 
-        std::vector<std::pair<Action, double>> KlondikeState::ChanceOutcomes() const {
-            std::cout << "KlondikeState::ChanceOutcomes()" << std::endl;
-            SPIEL_CHECK_TRUE(IsChanceNode());
-            std::vector<std::pair<Action, double>> outcomes;
-
-            const double p = 1.0 / deck_size_;
-            for (int card = 0; card < deck_.size(); card++) {
-                // This card is still in the deck, prob is 1/decksize.
-                if (deck_[card] != kInvalidCard) outcomes.push_back({card, p});
-            }
-            return outcomes;
-        }
-
-        int                     KlondikeState::NextPlayer() const {
-            std::cout << "KlondikeState::NextPlayer()" << std::endl;
-            // If we are on a chance node, it is the first player to play
-            int current_real_player;
-            if (cur_player_ == kChancePlayerId) {
-                current_real_player = -1;
-            } else {
-                current_real_player = cur_player_;
-            }
-            // Go to the next player who's still in.
-            for (int i = 1; i < num_players_; ++i) {
-                Player player = (current_real_player + i) % num_players_;
-
-                SPIEL_CHECK_TRUE(player >= 0);
-                SPIEL_CHECK_TRUE(player < num_players_);
-                if (!folded_[player]) {
-                    return player;
-                }
-            }
-
-            SpielFatalError("Error in KlondikeState::NextPlayer(), should not get here.");
-        }
-
-        int                     KlondikeState::RankHand(Player player) const {
-            std::cout << "KlondikeState::RankHand()" << std::endl;
-            int hand[] = {public_card_, private_cards_[player]};
-            // Put the lower card in slot 0, the higher in slot 1.
-            if (hand[0] > hand[1]) {
-                std::swap(hand[0], hand[1]);
-            }
-
-            // E.g. rank for two players:
-            // 0 J1, 1 J2, 2 Q1, 3 Q2, 4 K1, 5 K2.
-            int num_cards = deck_.size();
-
-            if (hand[0] % 2 == 0 && hand[1] == hand[0] + 1) {
-                // Pair! Offset by deck_size_^2 to put higher than every singles combo.
-                return (num_cards * num_cards + hand[0]);
-            } else {
-                // Otherwise card value dominates. No high/low suit: only two suits, and
-                // given ordering above, dividing by gets the value (integer division
-                // intended.) This could lead to ties/draws and/or multiple winners.
-                return (hand[1] / 2) * num_cards + (hand[0] / 2);
-            }
-        }
-
-        void                    KlondikeState::ResolveWinner() {
-            std::cout << "KlondikeState::ResolveWinner()" << std::endl;
-            num_winners_ = kInvalidPlayer;
-
-            if (remaining_players_ == 1) {
-                // Only one left in? They get the pot!
-                for (Player player_index = 0; player_index < num_players_; player_index++) {
-                    if (!folded_[player_index]) {
-                        num_winners_ = 1;
-                        winner_[player_index] = true;
-                        money_[player_index] += pot_;
-                        pot_ = 0;
-                        return;
-                    }
-                }
-
-            } else {
-                // Otherwise, showdown!
-                // Find the best hand among those still in.
-                SPIEL_CHECK_NE(public_card_, kInvalidCard);
-                int best_hand_rank = -1;
-                num_winners_ = 0;
-                std::fill(winner_.begin(), winner_.end(), false);
-
-                for (Player player_index = 0; player_index < num_players_; player_index++) {
-                    if (!folded_[player_index]) {
-                        int rank = RankHand(player_index);
-                        if (rank > best_hand_rank) {
-                            // Beat the current best hand! Clear the winners list, then add.
-                            best_hand_rank = rank;
-                            std::fill(winner_.begin(), winner_.end(), false);
-                            winner_[player_index] = true;
-                            num_winners_ = 1;
-                        } else if (rank == best_hand_rank) {
-                            // Tied with best hand rank, so this player is a winner as well.
-                            winner_[player_index] = true;
-                            num_winners_++;
-                        }
-                    }
-                }
-
-                // Split the pot among the winners (possibly only one).
-                SPIEL_CHECK_TRUE(1 <= num_winners_ && num_winners_ <= num_players_);
-                for (Player player_index = 0; player_index < num_players_; player_index++) {
-                    if (winner_[player_index]) {
-                        // Give this player their share.
-                        money_[player_index] += static_cast<double>(pot_) / num_winners_;
-                    }
-                }
-                pot_ = 0;
-            }
-        }
-
-        bool                    KlondikeState::ReadyForNextRound() const {
-            std::cout << "KlondikeState::ReadyForNextRound()" << std::endl;
-            return ((num_raises_ == 0 && num_calls_ == remaining_players_) ||
-                    (num_raises_ > 0 && num_calls_ == (remaining_players_ - 1)));
-        }
-
-        void                    KlondikeState::NewRound() {
-            std::cout << "KlondikeState::NewRound()" << std::endl;
-            SPIEL_CHECK_EQ(round_, 1);
-            round_++;
-            num_raises_ = 0;
-            num_calls_ = 0;
-            cur_player_ = kChancePlayerId;  // Public card.
-        }
-
-        void                    KlondikeState::SequenceAppendMove(int move) {
-            std::cout << "KlondikeState::SequenceAppendMove()" << std::endl;
-            if (round_ == 1) {
-                round1_sequence_.push_back(move);
-            } else {
-                SPIEL_CHECK_EQ(round_, 2);
-                round2_sequence_.push_back(move);
-            }
-        }
-
-        void                    KlondikeState::Ante(Player player, int amount) {
-            std::cout << "KlondikeState::Ante()" << std::endl;
-            pot_ += amount;
-            ante_[player] += amount;
-            money_[player] -= amount;
-        }
-
-        std::vector<int>        KlondikeState::padded_betting_sequence() const {
-            std::cout << "KlondikeState::padded_betting_sequence()" << std::endl;
-            std::vector<int> history = round1_sequence_;
-
-            // We pad the history to the end of the first round with kPaddingAction.
-            history.resize(game_->MaxGameLength() / 2, kInvalidAction);
-
-            // We insert the actions that happened in the second round, and fill to
-            // MaxGameLength.
-            history.insert(history.end(), round2_sequence_.begin(),
-                           round2_sequence_.end());
-            history.resize(game_->MaxGameLength(), kInvalidAction);
-            return history;
-        }
-
-        void                    KlondikeState::SetPrivate(Player player, Action move) {
-            std::cout << "KlondikeState::SetPrivate()" << std::endl;
-            // Round 1. `move` refers to the card value to deal to the current
-            // underlying player (given by `private_cards_dealt_`).
-            private_cards_[player] = deck_[move];
-            deck_[move] = kInvalidCard;
-            --deck_size_;
-            ++private_cards_dealt_;
-
-            // When all private cards are dealt, move to player 0.
-            if (private_cards_dealt_ == num_players_) cur_player_ = 0;
-        }
-
-        std::unique_ptr<State>  KlondikeState::ResampleFromInfostate(int player_id, std::function<double()> rng) const {
+        std::unique_ptr<State>                  KlondikeState::ResampleFromInfostate(int player_id, std::function<double()> rng) const {
             std::cout << "KlondikeState::ResampleFromInfostate()" << std::endl;
             std::unique_ptr<KlondikeState> clone = std::make_unique<KlondikeState>(game_);
-
-            // First, deal out cards:
-            Action player_chance = history_.at(player_id);
-            for (int p = 0; p < GetGame()->NumPlayers(); ++p) {
-                if (p == player_id) {
-                    clone->ApplyAction(history_.at(p));
-                } else {
-                    Action chosen_action = player_chance;
-                    while (chosen_action == player_chance || chosen_action == public_card_) {
-                        chosen_action = SampleAction(clone->ChanceOutcomes(), rng()).first;
-                    }
-                    clone->ApplyAction(chosen_action);
-                }
-            }
-            for (int action : round1_sequence_) clone->ApplyAction(action);
-            if (public_card_ != kInvalidCard) {
-                clone->ApplyAction(public_card_);
-                for (int action : round2_sequence_) clone->ApplyAction(action);
-            }
             return clone;
         }
 
-        KlondikeGame::KlondikeGame(const GameParameters& params) :
-            Game(kGameType, params),
-            num_players_(ParameterValue<int>("players")),
-            total_cards_((num_players_ + 1) * kNumSuits) {
-                std::cout << "KlondikeGame::KlondikeGame()" << std::endl;
-                SPIEL_CHECK_GE(num_players_, kGameType.min_num_players);
-                SPIEL_CHECK_LE(num_players_, kGameType.max_num_players);
+        std::vector<Action>                     KlondikeState::LegalActions() const {
+            std::cout << "KlondikeState::LegalActions()" << std::endl;
+            return {1};
         }
 
-        std::unique_ptr<State>  KlondikeGame::NewInitialState() const {
+        std::vector<double>                     KlondikeState::Returns() const {
+            std::cout << "KlondikeState::Returns()" << std::endl;
+            return {};
+        }
+
+        std::vector<std::pair<Action, double>>  KlondikeState::ChanceOutcomes() const {
+            std::cout << "KlondikeState::ChanceOutcomes()" << std::endl;
+            std::vector<std::pair<Action, double>> outcomes;
+            return outcomes;
+        }
+
+        // KlondikeGame Methods ========================================================================================
+
+        KlondikeGame::KlondikeGame(const GameParameters& params) :
+            Game(kGameType, params),
+            num_players_(ParameterValue<int>("players")) {
+            // Empty
+        }
+
+        std::unique_ptr<State> KlondikeGame::NewInitialState() const {
             std::cout << "KlondikeGame::NewInitialState()" << std::endl;
             return std::unique_ptr<State>(new KlondikeState(shared_from_this()));
         }
 
-        std::vector<int>        KlondikeGame::InformationStateTensorShape() const {
-            // One-hot encoding for player number (who is to play).
-            // 2 slots of cards (total_cards_ bits each): private card, public card
-            // Followed by maximum game length * 2 bits each (call / raise)
-            std::cout << "KlondikeGame::InformationStateTensorShape()" << std::endl;
-            return {(num_players_) + (total_cards_ * 2) + (MaxGameLength() * 2)};
+        std::vector<int> KlondikeGame::InformationStateTensorShape() const {
+            // Usually `HistoryString` padded by max game length
+            // However, max game length is unknown and potentially infinite if loops are allowed
+            return {};
         }
 
-        std::vector<int>        KlondikeGame::ObservationTensorShape() const {
-            // One-hot encoding for player number (who is to play).
-            // 2 slots of cards (total_cards_ bits each): private card, public card
-            // Followed by the contribution of each player to the pot
+        std::vector<int> KlondikeGame::ObservationTensorShape() const {
+            // Deck, Waste, Foundations, Tableaus
+            // 24 + 24 + 52 + 133 = 233
             std::cout << "KlondikeGame::ObservationTensorShape()" << std::endl;
-            return {(num_players_) + (total_cards_ * 2) + (num_players_)};
+            return {233};
         }
 
-        double                  KlondikeGame::MaxUtility() const {
-            // In poker, the utility is defined as the money a player has at the end of
-            // the game minus then money the player had before starting the game.
-            // The most a player can win *per opponent* is the most each player can put
-            // into the pot, which is the raise amounts on each round times the maximum
-            // number raises, plus the original chip they put in to play.
-            std::cout << "KlondikeGame::MaxUtility()" << std::endl;
-            return (num_players_ - 1) * (kTotalRaisesPerRound * kFirstRaiseAmount +
-                                         kTotalRaisesPerRound * kSecondRaiseAmount + 1);
+        double KlondikeGame::MaxUtility() const {
+            // Sums of the total points that can be gained by three methods:
+            // - Moving cards to foundation (10 - 100 pts, depending on rank)
+            // - Moving cards from the waste (20 pts)
+            // - Uncovering hidden cards in the tableau (20 pts)
+            return 3220.0;
         }
 
-        double                  KlondikeGame::MinUtility() const {
-            // In poker, the utility is defined as the money a player has at the end of
-            // the game minus then money the player had before starting the game.
-            // The most any single player can lose is the maximum number of raises per
-            // round times the amounts of each of the raises, plus the original chip they
-            // put in to play.
-            std::cout << "KlondikeGame::MinUtility()" << std::endl;
-            return -1 * (kTotalRaisesPerRound * kFirstRaiseAmount +
-                         kTotalRaisesPerRound * kSecondRaiseAmount + 1);
+        double KlondikeGame::MinUtility() const {
+            // Going through the deck gives -20 each time past 3 rebuilds
+            // However, total points have a floor at 0 to prevent going to negative infinity
+            return 1.0;
         }
 
     }  // namespace klondike

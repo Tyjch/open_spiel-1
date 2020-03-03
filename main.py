@@ -30,7 +30,7 @@ games = [
 ]
 
 
-game = pyspiel.load_game(games[0])
+game = pyspiel.load_game('klondike')
 
 
 with tf.Session() as session:
