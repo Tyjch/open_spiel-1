@@ -98,7 +98,6 @@ namespace open_spiel {
 
         void                KlondikeState::ObservationTensor(Player player, std::vector<double>* values) const {
             std::cout << "KlondikeState::ObservationTensor()" << std::endl;
-            return {1}
         }
 
         bool                KlondikeState::IsTerminal() const {

@@ -195,19 +195,31 @@ namespace open_spiel {
         class KlondikeState : public State {
         public:
             explicit                KlondikeState(std::shared_ptr<const Game> game);
+
             Player                  CurrentPlayer()                                                     const override;
+
             std::string             ActionToString(Player player, Action move)                          const override;
+
             std::string             ToString()                                                          const override;
+
             std::string             InformationStateString(Player player)                               const override;
+
             std::string             ObservationString(Player player)                                    const override;
+
             std::unique_ptr<State>  Clone()                                                             const override;
+
             std::unique_ptr<State>  ResampleFromInfostate(int player_id, std::function<double()> rng)   const override;
+
             bool                    IsTerminal()                                                        const override;
+
             void                    InformationStateTensor(Player player, std::vector<double>* values)  const override;
+
             void                    ObservationTensor(Player player, std::vector<double>* values)       const override;
 
             std::vector<std::pair<Action, double>>  ChanceOutcomes()                                    const override;
+
             std::vector<double>                     Returns()                                           const override;
+
             std::vector<Action>                     LegalActions()                                      const override;
 
         protected:
@@ -217,6 +229,7 @@ namespace open_spiel {
             int current_player;
         };
 
+
         class KlondikeGame  : public Game {
         public:
             explicit KlondikeGame(const GameParameters& params);
@@ -224,26 +237,35 @@ namespace open_spiel {
             int                     NumDistinctActions()    const override {
                 return 155;
             }
+
             int                     MaxGameLength()         const override {
                 return 5;
             }
+
             int                     MaxChanceOutcomes()     const override {
                 return 1;
             }
+
             int                     NumPlayers()            const override {
                 return num_players_;
             }
+
             double                  UtilitySum()            const override {
                 return 0;
             }
+
             double                  MinUtility()            const override;
+
             double                  MaxUtility()            const override;
 
             std::unique_ptr<State>      NewInitialState()   const override;
+
             std::shared_ptr<const Game> Clone()             const override {
                 return std::shared_ptr<const Game>(new KlondikeGame(*this));
             }
+
             std::vector<int> InformationStateTensorShape()  const override;
+
             std::vector<int> ObservationTensorShape()       const override;
 
         private:
