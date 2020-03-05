@@ -8,10 +8,175 @@
 
 #include "open_spiel/spiel.h"
 
+#define RED    "\033[31m"
+#define WHITE  "\033[37m"
+#define YELLOW "\033[33m"
+#define RESET  "\033[0m"
+
+
 namespace open_spiel {
     namespace klondike {
-        inline constexpr int kInvalidCard    = -10000;
+
         inline constexpr int kDefaultPlayers = 1;
+
+        const std::vector<std::string> SUITS = {"s", "h", "c", "d"};
+        const std::vector<std::string> RANKS = {"A", "2", "3", "4", "5", "6", "7", "8", "9", "T", "J", "Q", "K"};
+
+        class Card {
+        public:
+            std::string rank;
+            std::string suit;
+            bool hidden = true;
+
+            Card (std::string card_rank, std::string card_suit, bool card_hidden = false) : suit(0), rank(0) {
+                rank   = card_rank;
+                suit   = card_suit;
+                hidden = card_hidden;
+            }
+
+            void render () {
+                if (hidden) {
+                    std::cout << "[]" << ' ';
+                }
+                else if (suit == "h" or suit == "d") {
+                    std::cout << RED << rank << suit << RESET << ' ';
+                }
+                else if (suit == "s" or suit == "c") {
+                    std::cout << WHITE << rank << suit << RESET << ' ';
+                }
+            }
+
+            bool operator==(Card other_card) {
+                return rank == other_card.rank and suit == other_card.suit;
+            }
+        };
+
+        class Deck {
+        public:
+            std::deque<Card> cards;
+            std::deque<Card> waste;
+
+            Deck () {
+                for (std::string suit : SUITS) {
+                    for (std::string rank : RANKS) {
+                        Card current_card = Card {rank, suit, true};
+                        cards.push_back(current_card);
+                    }
+                }
+            }
+
+            void render () {
+                for (Card card : cards) { card.render(); }
+                std::cout << std::endl;
+
+                for (Card card : waste) { card.render(); }
+                std::cout << "\n" << std::endl;
+            }
+
+            void shuffle (int seed) {
+                if (!is_shuffled) {
+                    std::shuffle(cards.begin(), cards.end(), std::default_random_engine(seed));
+                    is_shuffled    = true;
+                    initial_order = cards;
+                }
+                else {
+                    std::cout << YELLOW << "WARNING: Deck is already shuffled" << RESET << std::endl;
+                }
+            }
+
+            void draw (int num_cards=3) {
+                // Draws cards into the waste, to potentially be moved by the player
+                std::deque<Card> dealt_cards = deal(num_cards);
+
+                // Cards drawn into the waste are unhidden
+                for (Card & card : dealt_cards) { card.hidden = false; }
+
+                // Inserts the drawn cards into the waste
+                waste.insert(waste.begin(), dealt_cards.begin(), dealt_cards.end());
+            }
+
+            void rebuild () {
+                if (cards.empty()) {
+                    for (Card card : initial_order) {
+                        if (std::find(waste.begin(),waste.end(), card) != waste.end()) {
+                            cards.push_back(card);
+                        }
+                    }
+                    waste.clear();
+                    times_rebuilt += 1;
+                }
+                else {
+                    std::cout << YELLOW << "WARNING: Deck is not empty" << RESET << std::endl;
+                }
+
+            }
+
+            std::deque<Card> deal (unsigned long int num_cards) {
+                // Deals cards, used to create the initial state of the game
+                std::deque<Card> dealt_cards;
+
+                num_cards = std::min(num_cards, cards.size());
+                int i = 0;
+                while (i < num_cards) {
+                    Card card = cards.front();          // Gets the first card in the deck
+                    dealt_cards.push_back(card);        // Adds first card to dealt cards
+                    cards.pop_front();                  // Removes the first card in the deck
+                    i++;                                // Increment iterator
+                }
+                return dealt_cards;
+            }
+
+        private:
+            int  times_rebuilt = 0;
+            bool is_shuffled    = false;
+            std::deque<Card> initial_order;
+        };
+
+        class Foundation {
+        public:
+            char suit;
+            std::deque<Card> cards;
+
+            explicit Foundation (char foundation_suit) {
+                suit = foundation_suit;
+            }
+
+            void render () {
+                if (suit=='h' or suit=='d') {
+                    std::cout << RED << "[" << suit << "]" << RESET;
+                } else if (suit=='s' or suit=='c') {
+                    std::cout << WHITE << "[" << suit << "]" << RESET;
+                }
+
+            }
+        };
+
+        class Tableau {
+        public:
+            std::deque<Card> cards;
+
+            Tableau () {
+                cards = {};
+            }
+
+            explicit Tableau (std::deque<Card> provided_cards) {
+                // Copy provided cards into `Tableau.cards`
+                cards = provided_cards;
+
+                // Hide provided cards when copied into the tableau
+                for (Card & card : cards) {
+                    card.hidden = true;
+                }
+
+                // Reveal the top card of the tableau
+                cards.back().hidden = false;
+            }
+
+            void render () {
+                for (Card card : cards) { card.render(); }
+                std::cout << std::endl;
+            }
+        };
 
         class KlondikeGame;
 
@@ -226,7 +391,10 @@ namespace open_spiel {
             void DoApplyAction(Action move) override;
 
         private:
-            int current_player;
+            int cur_player_;
+            Deck deck_ = Deck();
+            std::vector<Foundation> foundations_ = {};
+            std::vector<Tableau> tableaus_ = {};
         };
 
 
@@ -251,7 +419,7 @@ namespace open_spiel {
             }
 
             double                  UtilitySum()            const override {
-                return 0;
+                return 0.0;
             }
 
             double                  MinUtility()            const override;

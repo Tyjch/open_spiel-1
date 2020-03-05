@@ -22,7 +22,11 @@ import random
 from absl import app
 from absl import flags
 import numpy as np
+from pprint import pprint
 
+import sys
+sys.path.append("/Users/tylerchurchill/CLionProjects/open_spiel")
+sys.path.append("/Users/tylerchurchill/CLionProjects/open_spiel/build/python")
 import pyspiel
 
 FLAGS = flags.FLAGS
@@ -60,6 +64,29 @@ def main(_):
     print("")
     state = game.deserialize_state(state_string)
   else:
+    pprint(dir(game))
+
+
+    print('get_parameters():               ', game.get_parameters())
+    print('get_type():                     ', game.get_type())
+    print('num_players():                  ', game.num_players())
+    print('information_state_tensor_layout:', game.information_state_tensor_layout())
+    print('information_state_tensor_shape: ', game.information_state_tensor_shape())
+    print('information_state_tensor_size:  ', game.information_state_tensor_size())
+    print('max_chance_outcomes:            ', game.max_chance_outcomes())
+    print('max_game_length:                ', game.max_game_length())
+    print('max_utility:                    ', game.max_utility())
+    print('min_utility:                    ', game.min_utility())
+    print('new_initial_state:              ', game.new_initial_state())
+    print('num_distinct_actions:           ', game.num_distinct_actions())
+    print('num_players:                    ', game.num_players())
+    print('observation_tensor_layout():    ', game.observation_tensor_layout())
+    'observation_tensor_shape:',
+    'observation_tensor_size:',
+    'policy_tensor_shape:',
+    'utility_sum:'
+
+
     state = game.new_initial_state()
 
   # Print the initial state

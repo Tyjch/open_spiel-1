@@ -25,7 +25,7 @@ namespace open_spiel {
                 testing::LoadGameTest("klondike");
                 testing::ChanceOutcomesTest(*LoadGame("klondike"));
                 testing::RandomSimTest(*LoadGame("klondike"), 100);
-                for (Player players = 3; players <= 5; players++) {
+                for (Player players = 1; players <= 1; players++) {
                     testing::RandomSimTest(
                             *LoadGame("klondike", {{"players", GameParameter(players)}}), 100);
                 }
