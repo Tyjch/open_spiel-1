@@ -31,7 +31,7 @@ import pyspiel
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_string("game", "klondike", "Name of the game")
+flags.DEFINE_string("game", "tic_tac_toe", "Name of the game")
 flags.DEFINE_integer("players", None, "Number of players")
 flags.DEFINE_string("load_state", None,
                     "A file containing a string to load a specific state")
@@ -80,11 +80,11 @@ def main(_):
     print('new_initial_state:              ', game.new_initial_state())
     print('num_distinct_actions:           ', game.num_distinct_actions())
     print('num_players:                    ', game.num_players())
-    print('observation_tensor_layout():    ', game.observation_tensor_layout())
-    'observation_tensor_shape:',
-    'observation_tensor_size:',
-    'policy_tensor_shape:',
-    'utility_sum:'
+    print('observation_tensor_layout:      ', game.observation_tensor_layout())
+    print('observation_tensor_shape:       ', game.observation_tensor_shape())
+    print('observation_tensor_size:        ', game.observation_tensor_size())
+    print('policy_tensor_shape:            ', game.policy_tensor_shape())
+    print('utility_sum:                    ', game.utility_sum())
 
 
     state = game.new_initial_state()
