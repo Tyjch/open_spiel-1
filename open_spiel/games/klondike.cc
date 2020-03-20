@@ -18,6 +18,11 @@
 #define YELLOW "\033[33m"
 #define RESET  "\033[0m"
 
+
+// TODO: Handle moves to empty piles for aces and kings
+// TODO: Implement draw moves
+
+
 namespace open_spiel::klondike {
 
     namespace {
@@ -89,12 +94,14 @@ namespace open_spiel::klondike {
     }
 
     Action GetActionFromMove(const Card & target, const Card & source) {
+        // TODO: Handle special moves
         int target_int = (int) target;
         int source_int = (int) source;
         return target_int * 100 + source_int + 52;
     }
 
     std::pair<Card, Card> GetMoveFromAction(const Action & action) {
+        // TODO: Handle special moves -> {1252, 2552, 3852, 5152, 52, 1352, 2652, 3952}
         int source_int = (action - 52) % 100;
         int target_int = (action - source_int) / 100;
         return std::make_pair(Card(target_int), Card(source_int));
@@ -162,21 +169,9 @@ namespace open_spiel::klondike {
         }
     }
 
-    void Deck::shuffle(int seed) {
-        if (!is_shuffled) {
-            std::shuffle(cards.begin(), cards.end(), std::default_random_engine(seed));
-            is_shuffled = true;
-            initial_order = cards;
-        } else {
-            std::cout << YELLOW << "WARNING: Deck is already shuffled" << RESET << std::endl;
-        }
-    }
-
     void Deck::draw(int num_cards=3) {
         std::deque<Card> dealt_cards = deal(num_cards);
-        for (Card & card : dealt_cards) {
-            card.hidden = false;
-        }
+        for (Card & card : dealt_cards) {card.hidden = false;}
         waste.insert(waste.begin(), dealt_cards.begin(), dealt_cards.end());
     }
 
@@ -210,6 +205,10 @@ namespace open_spiel::klondike {
     // Foundation Methods ==============================================================================================
 
     Foundation::Foundation(std::string suit) : suit(suit) {};
+
+    bool Foundation::operator==(Foundation & other_foundation) const {
+        return cards == other_foundation.cards;
+    }
 
     // Tableau Methods =================================================================================================
 
@@ -247,14 +246,22 @@ namespace open_spiel::klondike {
     }
 
     std::vector<Action>     KlondikeState::LegalActions() const {
+        /* "Local Loop Prevention"
+        "An action is eliminated from a state, s, in a search tree if, by definition, state s can be
+        restored in a single action following that action. In order to maintain a complete search, these
+        actions are included only when paired with a second action such that s cannot be trivially recovered"
+        - Bjarnason et al. (2007) */
+
+        // Essentially, at each state, we want to mask the inverse of the action taken at the previous state if
+        // doing that inverse action would restore us to the previous state.
+
+        // Probably easiest just to store previous state, compute result of taking each action, check if any actions
+        // create a state equivalent to the previous state, if one does, its corresponding action is masked.
+
         if (!is_setup_) {
-            // int for action "kSetup"
             return {kSetup};
         }
         else {
-            // TODO: Figure out legal actions here
-            // TODO: Get Empty <- K and Empty <- A actions
-
             std::cout << "\nLEGAL ACTIONS:" << std::endl;
 
             std::vector<std::pair<Card, Card>> legal_moves;
@@ -313,6 +320,20 @@ namespace open_spiel::klondike {
             // This section handles king to empty tableau moves
             // TODO: Implement this
 
+            // If the deck isn't empty ...
+            if (!deck.cards.empty()) {
+                // ... then we can draw from the deck
+                legal_actions.push_back(kDraw);
+            }
+            // If the deck is empty ...
+            else {
+                // ... and the waste isn't empty ...
+                if (!deck.waste.empty()) {
+                    // ... then we can draw from the deck (after rebuilding from the waste)
+                    legal_actions.push_back(kDraw);
+                }
+            }
+
             std::cout << "\n";
             return legal_actions;
         }
@@ -325,9 +346,19 @@ namespace open_spiel::klondike {
         if (0 <= action_id and action_id <= 51) {
             Card card = Card {action_id};
             absl::StrAppend(&result, "kSet", card.rank, card.suit);
-        } else if (!is_setup_) {
+        }
+        else if (!is_setup_) {
             absl::StrAppend(&result, "kSetup");
-        } else {
+        }
+        else if (action_id == kDraw) {
+            absl::StrAppend(&result, "kDraw");
+        }
+        else if (special_moves.count(action_id) == 1) {
+            int card_index = (action_id - 52) / 100;
+            Card special_card = Card(card_index);
+            absl::StrAppend(&result, "kMove", special_card.rank, special_card.suit);
+        }
+        else {
             std::pair<Card, Card> move = GetMoveFromAction(action_id);
             absl::StrAppend(&result, "kMove", move.first.rank, move.first.suit, move.second.rank, move.second.suit);
         }
@@ -386,7 +417,42 @@ namespace open_spiel::klondike {
     }
 
     bool                    KlondikeState::IsTerminal() const {
-        return false;
+
+        std::cout << "Entering IsTerminal()" << std::endl;
+
+        // =============================================================================================================
+        // This section checks if the game has been won by checking if the top
+        // card of each foundation has the rank "K" (King).
+        // =============================================================================================================
+
+        for (const auto & foundation : foundations) {
+            if (!(foundation.cards.back().rank == "K")) {
+                break;
+            } else {
+                return true;
+            }
+        }
+
+        // =============================================================================================================
+        // This section checks if there have been any moves in the last 12 turns
+        // besides drawing from the deck. 12 turns is the maximum number of draws
+        // before the deck is emptied and must be rebuilt.
+        //
+        // TODO: Technically we should check if there have been any moves besides
+        // TODO: kDraw and kEnd since the last time the deck has been rebuilt.
+        // =============================================================================================================
+
+        int i = 0;
+        std::vector<Action> history = History();
+        auto rit = history.rbegin();
+        for (rit = history.rbegin(); rit != history.rend(); ++rit) {
+            if (i > 11 or *rit != kDraw) {
+                break;
+            } else {
+                return false;
+            }
+        }
+
     }
 
     std::vector<double>     KlondikeState::Returns() const {
@@ -415,9 +481,6 @@ namespace open_spiel::klondike {
     }
 
     void KlondikeState::DoApplyAction(Action move) {
-
-        // These are moves that move a card to an empty pile
-        std::set<Action> special_moves = {1252, 2552, 3852, 5152, 52, 1352, 2652, 3952};
 
         if (setup_counter_ <= 51) {
             // This branch handles choosing the order of the deck
@@ -457,6 +520,15 @@ namespace open_spiel::klondike {
             is_setup_ = true;
         }
 
+        else if (move == kDraw) {
+            if (!deck.cards.empty()) {
+                deck.draw();
+            } else {
+                deck.rebuild();
+                deck.draw();
+            }
+        }
+
         else if (is_setup_ and special_moves.count(move) == 0) {
             std::cout << YELLOW << "\nORDINARY MOVE" << RESET << std::endl;
 
@@ -469,7 +541,39 @@ namespace open_spiel::klondike {
 
         else if (is_setup_ and special_moves.count(move) == 1) {
             std::cout << RED << "\nSPECIAL MOVE" << RESET << std::endl;
+
+            Card source = Card((move - 52) / 100);
+            std::deque<Card> * source_container = const_cast<std::deque<Card> *>(GetContainer(source));
+            std::deque<Card> split_cards;
+
+            if (source.rank == "A") {
+                for (auto & foundation : foundations) {
+                    if (foundation.cards.empty() and foundation.suit == source.suit) {
+                        // TODO: This is where I left off. Trying to handle moving aces to foundation piles
+                        if (*source_container == deck.waste) {
+                            // Transfer ace from waste to foundation
+                            foundation.cards.push_back(source_container->front());
+                            source_container->pop_front();
+                        }
+                        else {
+                            foundation.cards.push_back(source_container->back());
+                            source_container->pop_back();
+                        }
+                    }
+                }
+
+            }
+            else if (source.rank == "K") {
+
+            }
+
         }
+
+        std::cout << "History: " << std::endl;
+        for (auto & node : History()) {
+            std::cout << node << " ";
+        }
+        std::cout << std::endl;
     }
 
     bool KlondikeState::IsChanceNode() const {
@@ -631,29 +735,52 @@ namespace open_spiel::klondike {
         std::deque<Card> * target_container = const_cast<std::deque<Card> *>(GetContainer(target));
         std::deque<Card> * source_container = const_cast<std::deque<Card> *>(GetContainer(source));
 
-        std::cout << "\nTARGET CONTAINER : "; RenderPile(*target_container);
-        std::cout << "SOURCE CONTAINER : ";   RenderPile(*source_container);
+        // std::cout << "\nTARGET CONTAINER : "; RenderPile(*target_container);
+        // std::cout << "SOURCE CONTAINER : ";   RenderPile(*source_container);
 
         // Split Source Container on Source Card =======================================================================
 
         std::deque<Card> split_cards;
-        bool split_flag = false;
+        std::vector<std::deque<Card>> foundation_containers;
 
-        for (auto it = source_container->begin(); it != source_container->end();) {
-            if (*it == source) {
-                split_flag = true;
-            }
-            if (split_flag) {
-                split_cards.push_back(*it);
-                it = source_container->erase(it);
-            } else {
-                ++it;
+        for (auto & foundation : foundations) {
+            foundation_containers.push_back(foundation.cards);
+        }
+
+        if (*source_container == deck.waste) {
+            // Can only move one card, the top one of the waste
+            std::cout << "`source_container` is the waste pile" << std::endl;
+            split_cards.push_back(source_container->front());
+            source_container->pop_front();
+        }
+
+        else if (std::find(foundation_containers.begin(), foundation_containers.end(), *source_container) != foundation_containers.end()) {
+            std::cout << "`source_container` is a foundation" << std::endl;
+            split_cards.push_back(source_container->back());
+            source_container->pop_back();
+        }
+
+        else {
+            std::cout << "`source_container` is a tableau" << std::endl;
+            bool split_flag = false;
+            for (auto it = source_container->begin(); it != source_container->end();) {
+                if (*it == source) {
+                    split_flag = true;
+                }
+                if (split_flag) {
+                    split_cards.push_back(*it);
+                    it = source_container->erase(it);
+                } else {
+                    ++it;
+                }
             }
         }
 
         // Unhide Last Card in Source Container ========================================================================
-        source_container->back().hidden = false;
 
+        if (!source_container->empty()) {
+            source_container->back().hidden = false;
+        }
 
         // Add Split Cards to Target Container =========================================================================
 
@@ -662,17 +789,8 @@ namespace open_spiel::klondike {
         }
 
         // Render ======================================================================================================
-        std::cout << "\nTARGET CONTAINER : "; RenderPile(*target_container);
-        std::cout << "SOURCE CONTAINER : ";   RenderPile(*source_container);
-
-
-
-
-
-
-
-
-
+        // std::cout << "\nTARGET CONTAINER : "; RenderPile(*target_container);
+        // std::cout << "SOURCE CONTAINER : ";   RenderPile(*source_container);
 
     }
 

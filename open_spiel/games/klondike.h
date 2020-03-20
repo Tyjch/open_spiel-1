@@ -171,8 +171,8 @@ namespace open_spiel::klondike {
         kMove8s9s = 760,
         kMove9sTs = 861,
         kMoveTsJs = 962,
-        kMoveJsQs = 1063,
-        kMoveQsKs = 1164,
+        kMoveJsQs = 1063,   // kMoveKhQs, kMoveKdQs
+        kMoveQsKs = 1164,   // kMove
         kMoveKs   = 1252,
         kMoveAh2h = 1366,
         kMove2h3h = 1467,
@@ -315,6 +315,8 @@ namespace open_spiel::klondike {
         kMoveKdQc = 5189,
     };
 
+    const std::set<Action> special_moves = {1252, 2552, 3852, 5152, 52, 1352, 2652, 3952};
+
     class Card {
     public:
         std::string rank;
@@ -356,6 +358,7 @@ namespace open_spiel::klondike {
         std::string suit;
         std::deque<Card> cards;
         explicit Foundation(std::string suit);
+        bool operator==(Foundation & other_foundation) const;
     };
 
     class Tableau {
