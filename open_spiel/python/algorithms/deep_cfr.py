@@ -37,9 +37,6 @@ from open_spiel.python import policy
 from colors import red, blue
 
 
-
-
-
 AdvantageMemory = collections.namedtuple(
     "AdvantageMemory", "info_state iteration advantage action")
 
@@ -278,8 +275,7 @@ class DeepCFRSolver(policy.Policy):
             # Update the policy over the info set & actions via regret matching.
             advantages, strategy = self._sample_action_from_advantage(state, player)
             for action in state.legal_actions():
-                expected_payoff[action] = self._traverse_game_tree(
-                    state.child(action), player)
+                expected_payoff[action] = self._traverse_game_tree(state.child(action), player)
             for action in state.legal_actions():
                 sampled_regret[action] = expected_payoff[action]
                 for a_ in state.legal_actions():

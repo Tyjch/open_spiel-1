@@ -171,8 +171,8 @@ namespace open_spiel::klondike {
         kMove8s9s = 760,
         kMove9sTs = 861,
         kMoveTsJs = 962,
-        kMoveJsQs = 1063,   // kMoveKhQs, kMoveKdQs
-        kMoveQsKs = 1164,   // kMove
+        kMoveJsQs = 1063,
+        kMoveQsKs = 1164,
         kMoveKs   = 1252,
         kMoveAh2h = 1366,
         kMove2h3h = 1467,
@@ -376,31 +376,45 @@ namespace open_spiel::klondike {
         Deck deck;
         std::vector<Foundation> foundations;
         std::vector<Tableau>    tableaus;
+        std::string             previous_string;
+        double                  previous_score;
+        bool                    last_move_was_reversible;
 
-        explicit KlondikeState(std::shared_ptr<const Game> game);
+        explicit                KlondikeState(std::shared_ptr<const Game> game);
         Player                  CurrentPlayer() const override;
         std::vector<Action>     LegalActions() const override;
         std::string             ActionToString(Player player, Action action_id) const override;
         std::string             ToString() const override;
+        std::string             GetContainerType(Card card) const;
         bool                    IsTerminal() const override;
         std::vector<double>     Returns() const override;
         std::unique_ptr<State>  Clone() const override;
-        std::vector<std::pair<Action, double>> ChanceOutcomes() const override;
-        void DoApplyAction(Action move) override;
-        bool IsChanceNode() const override;
-        std::vector<Card> Targets() const;
-        std::vector<Card> Sources() const;
-        std::vector<Card> Sources(const std::string& location) const;
-        std::vector<Card> Targets(const std::string& location) const;
-        void MoveCards(const std::pair<Card, Card>& move);
+        void                    DoApplyAction(Action move) override;
+        bool                    IsChanceNode() const override;
+        std::vector<Card>       Targets() const;
+        std::vector<Card>       Sources() const;
+        std::vector<Card>       Sources(const std::string& location) const;
+        std::vector<Card>       Targets(const std::string& location) const;
+        void                    MoveCards(const std::pair<Card, Card>& move);
+        std::vector<double>     Rewards() const override;
+        bool                    IsReversible(Action action) const;
+        std::vector<Action>     CandidateActions() const;
+
+        std::string InformationStateString(Player player) const override;
+        std::string ObservationString(Player player) const override;
+
+        //void InformationStateTensor(Player player, std::vector<double> * values) const override;
+        //void ObservationTensor(Player player, std::vector<double> * values) const override;
+
         const std::deque<Card> * GetContainer(Card card_to_find) const;
+        std::vector<std::pair<Action, double>> ChanceOutcomes() const override;
 
     private:
         int  cur_player_;
         int  setup_counter_{};
         bool is_setup_;
-
-
+        double score_;
+        double CurrentScore() const;
     };
 
     class KlondikeGame : public Game {
@@ -412,6 +426,9 @@ namespace open_spiel::klondike {
         double   MinUtility() const override;
         double   MaxUtility() const override;
 
+        //std::vector<int> InformationStateTensorShape() const override;
+        //std::vector<int> ObservationTensorShape() const override;
+
         std::unique_ptr<State>      NewInitialState() const override;
         std::shared_ptr<const Game> Clone() const override;
 
@@ -421,4 +438,4 @@ namespace open_spiel::klondike {
 
 }
 
-#endif //OPEN_SPIEL_KLONDIKE_H
+#endif // THIRD_PARTY_OPEN_SPIEL_GAMES_KLONDIKE_H_

@@ -47,7 +47,6 @@ const GameType kGameType{/*short_name=*/"leduc_poker",
                          {{"players", GameParameter(kDefaultPlayers)}}};
 
 std::shared_ptr<const Game> Factory(const GameParameters& params) {
-  std::cout << "leduc_poker.Factory" << std::endl;
   return std::shared_ptr<const Game>(new LeducGame(params));
 }
 
@@ -87,7 +86,6 @@ LeducState::LeducState(std::shared_ptr<const Game> game)
 }
 
 int LeducState::CurrentPlayer() const {
-  std::cout << "LeducState::CurrentPlayer()" << std::endl;
   if (IsTerminal()) {
     return kTerminalPlayerId;
   } else {
@@ -99,7 +97,6 @@ int LeducState::CurrentPlayer() const {
 // underlying player.
 // On a player node, it should be ActionType::{kFold, kCall, kRaise}
 void LeducState::DoApplyAction(Action move) {
-  std::cout << "LeducState::DoApplyAction()" << std::endl;
   if (IsChanceNode()) {
     SPIEL_CHECK_GE(move, 0);
     SPIEL_CHECK_LT(move, deck_.size());
@@ -184,7 +181,6 @@ void LeducState::DoApplyAction(Action move) {
 }
 
 std::vector<Action> LeducState::LegalActions() const {
-  std::cout << "LeducState::LegalActions()" << std::endl;
   if (IsTerminal()) return {};
   std::vector<Action> movelist;
   if (IsChanceNode()) {
@@ -210,7 +206,6 @@ std::vector<Action> LeducState::LegalActions() const {
 }
 
 std::string LeducState::ActionToString(Player player, Action move) const {
-    std::cout << "LeducState::ActionToString()" << std::endl;
   if (player == kChancePlayerId)
     return absl::StrCat("Chance outcome:", move);
   else if (move == ActionType::kFold)
@@ -227,7 +222,6 @@ std::string LeducState::ActionToString(Player player, Action move) const {
 }
 
 std::string LeducState::ToString() const {
-    std::cout << "LeducState::ToString()" << std::endl;
 
   std::string result;
 
@@ -253,12 +247,10 @@ std::string LeducState::ToString() const {
 }
 
 bool LeducState::IsTerminal() const {
-    std::cout << "LeducState::IsTerminal()" << std::endl;
   return remaining_players_ == 1 || (round_ == 2 && ReadyForNextRound());
 }
 
 std::vector<double> LeducState::Returns() const {
-    std::cout << "LeducState::Returns()" << std::endl;
   if (!IsTerminal()) {
     return std::vector<double>(num_players_, 0.0);
   }
@@ -274,7 +266,7 @@ std::vector<double> LeducState::Returns() const {
 
 // Information state is card then bets.
 std::string LeducState::InformationStateString(Player player) const {
-        std::cout << "LeducState::InformationStateString()" << std::endl;
+
   SPIEL_CHECK_GE(player, 0);
   SPIEL_CHECK_LT(player, num_players_);
   // TODO(author1): Fix typos in InformationState string.
@@ -288,7 +280,6 @@ std::string LeducState::InformationStateString(Player player) const {
 
 // Observation is card then contribution of each players to the pot.
 std::string LeducState::ObservationString(Player player) const {
-        std::cout << "LeducState::ObservationString()" << std::endl;
   SPIEL_CHECK_GE(player, 0);
   SPIEL_CHECK_LT(player, num_players_);
   std::string result;
@@ -314,7 +305,6 @@ std::string LeducState::ObservationString(Player player) const {
 
 void LeducState::InformationStateTensor(Player player,
                                         std::vector<double>* values) const {
-    std::cout << "LeducState::InformationStateTensor()" << std::endl;
   SPIEL_CHECK_GE(player, 0);
   SPIEL_CHECK_LT(player, num_players_);
 
@@ -372,7 +362,6 @@ void LeducState::InformationStateTensor(Player player,
 
 void LeducState::ObservationTensor(Player player,
                                    std::vector<double>* values) const {
-    std::cout << "LeducState::ObservationTensor()" << std::endl;
   SPIEL_CHECK_GE(player, 0);
   SPIEL_CHECK_LT(player, num_players_);
 
@@ -407,12 +396,10 @@ void LeducState::ObservationTensor(Player player,
 }
 
 std::unique_ptr<State> LeducState::Clone() const {
-    std::cout << "LeducState::Clone()" << std::endl;
   return std::unique_ptr<State>(new LeducState(*this));
 }
 
 std::vector<std::pair<Action, double>> LeducState::ChanceOutcomes() const {
-    std::cout << "LeducState::ChanceOutcomes()" << std::endl;
   SPIEL_CHECK_TRUE(IsChanceNode());
   std::vector<std::pair<Action, double>> outcomes;
 
@@ -425,7 +412,6 @@ std::vector<std::pair<Action, double>> LeducState::ChanceOutcomes() const {
 }
 
 int LeducState::NextPlayer() const {
-    std::cout << "LeducState::NextPlayer()" << std::endl;
   // If we are on a chance node, it is the first player to play
   int current_real_player;
   if (cur_player_ == kChancePlayerId) {
@@ -448,7 +434,6 @@ int LeducState::NextPlayer() const {
 }
 
 int LeducState::RankHand(Player player) const {
-    std::cout << "LeducState::RankHand()" << std::endl;
   int hand[] = {public_card_, private_cards_[player]};
   // Put the lower card in slot 0, the higher in slot 1.
   if (hand[0] > hand[1]) {
@@ -471,7 +456,6 @@ int LeducState::RankHand(Player player) const {
 }
 
 void LeducState::ResolveWinner() {
-    std::cout << "LeducState::ResolveWinner()" << std::endl;
   num_winners_ = kInvalidPlayer;
 
   if (remaining_players_ == 1) {
@@ -524,13 +508,11 @@ void LeducState::ResolveWinner() {
 }
 
 bool LeducState::ReadyForNextRound() const {
-    std::cout << "LeducState::ReadyForNextRound()" << std::endl;
   return ((num_raises_ == 0 && num_calls_ == remaining_players_) ||
           (num_raises_ > 0 && num_calls_ == (remaining_players_ - 1)));
 }
 
 void LeducState::NewRound() {
-    std::cout << "LeducState::NewRound()" << std::endl;
   SPIEL_CHECK_EQ(round_, 1);
   round_++;
   num_raises_ = 0;
@@ -539,7 +521,6 @@ void LeducState::NewRound() {
 }
 
 void LeducState::SequenceAppendMove(int move) {
-    std::cout << "LeducState::SequenceAppendMove()" << std::endl;
   if (round_ == 1) {
     round1_sequence_.push_back(move);
   } else {
@@ -549,14 +530,12 @@ void LeducState::SequenceAppendMove(int move) {
 }
 
 void LeducState::Ante(Player player, int amount) {
-    std::cout << "LeducState::Ante()" << std::endl;
   pot_ += amount;
   ante_[player] += amount;
   money_[player] -= amount;
 }
 
 std::vector<int> LeducState::padded_betting_sequence() const {
-    std::cout << "LeducState::padded_betting_sequence()" << std::endl;
   std::vector<int> history = round1_sequence_;
 
   // We pad the history to the end of the first round with kPaddingAction.
@@ -571,7 +550,6 @@ std::vector<int> LeducState::padded_betting_sequence() const {
 }
 
 void LeducState::SetPrivate(Player player, Action move) {
-    std::cout << "LeducState::SetPrivate()" << std::endl;
   // Round 1. `move` refers to the card value to deal to the current
   // underlying player (given by `private_cards_dealt_`).
   private_cards_[player] = deck_[move];
@@ -585,7 +563,6 @@ void LeducState::SetPrivate(Player player, Action move) {
 
 std::unique_ptr<State> LeducState::ResampleFromInfostate(
     int player_id, std::function<double()> rng) const {
-    std::cout << "LeducState::ResampleFromInfostate()" << std::endl;
   std::unique_ptr<LeducState> clone = std::make_unique<LeducState>(game_);
 
   // First, deal out cards:
@@ -613,13 +590,11 @@ LeducGame::LeducGame(const GameParameters& params)
     : Game(kGameType, params),
       num_players_(ParameterValue<int>("players")),
       total_cards_((num_players_ + 1) * kNumSuits) {
-    std::cout << "LeducGame::LeducGame()" << std::endl;
   SPIEL_CHECK_GE(num_players_, kGameType.min_num_players);
   SPIEL_CHECK_LE(num_players_, kGameType.max_num_players);
 }
 
 std::unique_ptr<State> LeducGame::NewInitialState() const {
-    std::cout << "LeducGame::NewInitialState()" << std::endl;
   return std::unique_ptr<State>(new LeducState(shared_from_this()));
 }
 
@@ -627,7 +602,7 @@ std::vector<int> LeducGame::InformationStateTensorShape() const {
   // One-hot encoding for player number (who is to play).
   // 2 slots of cards (total_cards_ bits each): private card, public card
   // Followed by maximum game length * 2 bits each (call / raise)
-    std::cout << "LeducGame::InformationStateTensorShape()" << std::endl;
+
   return {(num_players_) + (total_cards_ * 2) + (MaxGameLength() * 2)};
 }
 
@@ -635,7 +610,6 @@ std::vector<int> LeducGame::ObservationTensorShape() const {
   // One-hot encoding for player number (who is to play).
   // 2 slots of cards (total_cards_ bits each): private card, public card
   // Followed by the contribution of each player to the pot
-    std::cout << "LeducGame::ObservationTensorShape()" << std::endl;
   return {(num_players_) + (total_cards_ * 2) + (num_players_)};
 }
 
@@ -645,7 +619,6 @@ double LeducGame::MaxUtility() const {
   // The most a player can win *per opponent* is the most each player can put
   // into the pot, which is the raise amounts on each round times the maximum
   // number raises, plus the original chip they put in to play.
-    std::cout << "LeducGame::MaxUtility()" << std::endl;
   return (num_players_ - 1) * (kTotalRaisesPerRound * kFirstRaiseAmount +
                                kTotalRaisesPerRound * kSecondRaiseAmount + 1);
 }
@@ -656,7 +629,6 @@ double LeducGame::MinUtility() const {
   // The most any single player can lose is the maximum number of raises per
   // round times the amounts of each of the raises, plus the original chip they
   // put in to play.
-    std::cout << "LeducGame::MinUtility()" << std::endl;
   return -1 * (kTotalRaisesPerRound * kFirstRaiseAmount +
                kTotalRaisesPerRound * kSecondRaiseAmount + 1);
 }

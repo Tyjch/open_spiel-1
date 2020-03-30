@@ -29,6 +29,7 @@ import sys
 sys.path.append("/Users/tylerchurchill/CLionProjects/open_spiel")
 sys.path.append("/Users/tylerchurchill/CLionProjects/open_spiel/build/python")
 import pyspiel
+from colors import color
 
 FLAGS = flags.FLAGS
 
@@ -36,7 +37,23 @@ flags.DEFINE_string("game", "klondike", "Name of the game")
 flags.DEFINE_integer("players", None, "Number of players")
 flags.DEFINE_string("load_state", None, "A file containing a string to load a specific state")
 
-np.random.seed(2)
+
+# Seeds: 7
+np.random.seed(8)
+
+
+def print_representations(state):
+    print('information_state_string: \n', state.information_state_string())
+    print('observation_string: \n', state.observation_string())
+
+    try:
+        print('information_state_tensor:')
+        print(state.information_state_tensor())
+        print('observation_tensor:')
+        print(state.observation_tensor())
+
+    except RuntimeError:
+        pass
 
 def main(_):
     games_list = pyspiel.registered_games()
@@ -63,44 +80,23 @@ def main(_):
         print("")
         state = game.deserialize_state(state_string)
     else:
-        '''
-        pprint(dir(game))
-        print('get_parameters():               ', game.get_parameters())
-        print('get_type():                     ', game.get_type())
-        print('num_players():                  ', game.num_players())
-        print('information_state_tensor_layout:', game.information_state_tensor_layout())
-        print('information_state_tensor_shape: ', game.information_state_tensor_shape())
-        print('information_state_tensor_size:  ', game.information_state_tensor_size())
-        print('max_chance_outcomes:            ', game.max_chance_outcomes())
-        print('max_game_length:                ', game.max_game_length())
-        print('max_utility:                    ', game.max_utility())
-        print('min_utility:                    ', game.min_utility())
-        print('new_initial_state:              ', game.new_initial_state())
-        print('num_distinct_actions:           ', game.num_distinct_actions())
-        print('num_players:                    ', game.num_players())
-        print('observation_tensor_layout:      ', game.observation_tensor_layout())
-        print('observation_tensor_shape:       ', game.observation_tensor_shape())
-        print('observation_tensor_size:        ', game.observation_tensor_size())
-        print('policy_tensor_shape:            ', game.policy_tensor_shape())
-        print('utility_sum:                    ', game.utility_sum())
-        '''
-
         state = game.new_initial_state()
 
     # Print the initial state
 
     print(str(state))
-    print('==' * 100)
+    print('==' * 30)
     print('state.is_terminal() =', state.is_terminal())
 
     while not state.is_terminal():
-        print('==' * 100)
+        print(color('==' * 40, fg='white'))
 
         if state.is_chance_node():
             # Chance node: sample an outcome
             outcomes = state.chance_outcomes()
             num_actions = len(outcomes)
-            print("Chance node, got " + str(num_actions) + " outcomes")
+            print(color(" Chance Node ", fg='red', style='negative'))
+            print(str(num_actions) + " outcomes")
             action_list, prob_list = zip(*outcomes)
             print('Action list:    ', action_list)
             print('Prob list:      ', prob_list)
@@ -124,15 +120,33 @@ def main(_):
 
         else:
             # Decision node: sample action for the single current player
-            print('Decision Node')
+            print(color(' Decision Node ', fg='red', style='negative'))
+            print(); print(str(state))
+
+            #print("Representations:")
+            #print_representations(state)
+
+            legal_actions = state.legal_actions(state.current_player())
+            print('\nLegal Actions:', [state.action_to_string(action) for action in legal_actions])
+
             action = random.choice(state.legal_actions(state.current_player()))
             action_string = state.action_to_string(state.current_player(), action)
-            print("Current Player :", state.current_player())
-            print("Randomly Sampled Action :", action_string)
+
+            print("Chosen Action :", action_string)
             state.apply_action(action)
 
-        print()
-        print(str(state))
+            print("Reward:", state.rewards())
+
+            if input("\nPress enter to continue >>>") == "":
+                pass
+            else:
+                print('Ending program')
+                break
+
+        #print()
+        #print(str(state))
+
+
 
     # Game is now done. Print utilities for each player
     print('State is Terminal')
