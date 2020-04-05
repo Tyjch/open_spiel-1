@@ -33,8 +33,9 @@ import numpy as np
 import sonnet as snt
 import tensorflow.compat.v1 as tf
 
+
 from open_spiel.python import policy
-from colors import red, blue
+from colors import color
 
 
 AdvantageMemory = collections.namedtuple(
@@ -213,28 +214,26 @@ class DeepCFRSolver(policy.Policy):
 
     @property
     def advantage_buffers(self):
-        print(red('DeepCFRSolver.advantage_buffers(self)'))
+
         return self._advantage_memories
 
     @property
     def strategy_buffer(self):
-        print(red('DeepCFRSolver.strategy_buffer(self)'))
+
         return self._strategy_memories
 
     def clear_advantage_buffers(self):
-        print(red('DeepCFRSolver.clear_advantage_buffers(self)'))
+
         for p in range(self._num_players):
             self._advantage_memories[p].clear()
 
     def reinitialize_advantage_networks(self):
-        print(red('DeepCFRSolver.reinitialize_advantage_networks(self)'))
+
         for p in range(self._num_players):
             for key in self._advantage_networks[p].initializers:
                 self._advantage_networks[p].initializers[key]()
 
     def solve(self):
-        print(red('DeepCFRSolver.solve(self)'))
-
         advantage_losses = collections.defaultdict(list)
         for _ in range(self._num_iterations):
             for p in range(self._num_players):
@@ -249,7 +248,7 @@ class DeepCFRSolver(policy.Policy):
         return self._policy_network, advantage_losses, policy_loss
 
     def _traverse_game_tree(self, state, player):
-        print(red(f'DeepCFRSolver._traverse_game_tree(state={state}, player={player})'))
+
         """Performs a traversal of the game tree.
 
     Over a traversal the advantage and strategy memories are populated with
@@ -264,13 +263,16 @@ class DeepCFRSolver(policy.Policy):
     """
         expected_payoff = collections.defaultdict(float)
         if state.is_terminal():
+            print(color(' Terminal Node ', fg='red', style='negative'))
             # Terminal state get returns.
             return state.returns()[player]
         elif state.is_chance_node():
+            print(color(' Chance Node ', fg='red', style='negative'))
             # If this is a chance node, sample an action
             action = np.random.choice([i[0] for i in state.chance_outcomes()])
             return self._traverse_game_tree(state.child(action), player)
         elif state.current_player() == player:
+            print(color(' Player Node ', fg='red', style='negative'))
             sampled_regret = collections.defaultdict(float)
             # Update the policy over the info set & actions via regret matching.
             advantages, strategy = self._sample_action_from_advantage(state, player)
@@ -285,7 +287,10 @@ class DeepCFRSolver(policy.Policy):
                                     advantages, action))
             return max(expected_payoff.values())
         else:
+            print(color(' Other Player Node ', fg='red', style='negative'))
             other_player = state.current_player()
+
+            print("Player:", other_player)
             _, strategy = self._sample_action_from_advantage(state, other_player)
             # Recompute distribution dor numerical errors.
             probs = np.array(strategy)
@@ -295,10 +300,12 @@ class DeepCFRSolver(policy.Policy):
                 StrategyMemory(
                     state.information_state_tensor(other_player), self._iteration,
                     strategy))
+
+            print('Sampled action:', sampled_action)
             return self._traverse_game_tree(state.child(sampled_action), player)
 
     def _sample_action_from_advantage(self, state, player):
-        print(red(f'DeepCFRSolver._sample_action_from_advantage({state}, {player})'))
+
         """Returns an info state policy by applying regret-matching.
 
     Args:
@@ -325,7 +332,8 @@ class DeepCFRSolver(policy.Policy):
         return advantages, matched_regrets
 
     def action_probabilities(self, state):
-        print(red(f'DeepCFRSolver.action_probabilities(state={state})'))
+        print(color("Action Probabilities()", fg='blue', style='negative'))
+
         """Returns action probabilities dict for a single batch."""
         cur_player = state.current_player()
         legal_actions = state.legal_actions(cur_player)
@@ -337,7 +345,7 @@ class DeepCFRSolver(policy.Policy):
         return {action: probs[0][action] for action in legal_actions}
 
     def _learn_advantage_network(self, player):
-        print(red(f'DeepCFRSolver._learn_advantage_network(player={player})'))
+
         """Compute the loss on sampled transitions and perform a Q-network update.
 
     If there are not enough elements in the buffer, no loss is computed and
@@ -374,7 +382,7 @@ class DeepCFRSolver(policy.Policy):
         return loss_advantages
 
     def _learn_strategy_network(self):
-        print(red('DeepCFRSolver._learn_strategy_network(self)'))
+
         """Compute the loss over the strategy network.
 
     Returns:

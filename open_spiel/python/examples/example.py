@@ -33,7 +33,7 @@ from colors import color
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_string("game", "klondike", "Name of the game")
+flags.DEFINE_string("game", "solitaire", "Name of the game")
 flags.DEFINE_integer("players", None, "Number of players")
 flags.DEFINE_string("load_state", None, "A file containing a string to load a specific state")
 
@@ -43,13 +43,15 @@ np.random.seed(8)
 
 
 def print_representations(state):
-    print('information_state_string: \n', state.information_state_string())
-    print('observation_string: \n', state.observation_string())
+    #print('information_state_string: \n', state.information_state_string())
+    #print('observation_string: \n', state.observation_string())
 
     try:
-        print('information_state_tensor:')
+        infostate = state.information_state_tensor()
+        observation = state.observation_tensor()
+        print('information_state_tensor: ', len(infostate))
         print(state.information_state_tensor())
-        print('observation_tensor:')
+        print('observation_tensor: ', len(observation))
         print(state.observation_tensor())
 
     except RuntimeError:

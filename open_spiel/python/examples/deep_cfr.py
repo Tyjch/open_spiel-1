@@ -18,6 +18,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import sys
+sys.path.append("/Users/tylerchurchill/CLionProjects/open_spiel")
+sys.path.append("/Users/tylerchurchill/CLionProjects/open_spiel/build/python")
+
 from absl import app
 from absl import flags
 from absl import logging
@@ -28,13 +32,14 @@ import tensorflow.compat.v1 as tf
 from open_spiel.python import policy
 from open_spiel.python.algorithms import deep_cfr
 from open_spiel.python.algorithms import exploitability
+
 import pyspiel
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_integer("num_iterations", 400, "Number of iterations")
-flags.DEFINE_integer("num_traversals", 40, "Number of traversals/games")
-flags.DEFINE_string("game_name", "kuhn_poker", "Name of the game")
+flags.DEFINE_integer("num_iterations", 10, "Number of iterations")
+flags.DEFINE_integer("num_traversals", 5, "Number of traversals/games")
+flags.DEFINE_string("game_name", "klondike", "Name of the game")
 
 
 def main(unused_argv):
