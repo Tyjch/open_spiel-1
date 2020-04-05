@@ -111,6 +111,31 @@ namespace open_spiel::klondike {
         return std::make_pair(Card(target_int), Card(source_int));
     }
 
+    std::vector<double>         PileObservation(std::vector<Card> pile, int length) {
+        std::vector<double> double_vector;
+        for (auto & card : pile) {
+            double_vector.push_back((int) card);
+        }
+        double_vector.resize(length, 99.0);
+        return double_vector;
+    }
+
+    std::vector<double>         PileObservation(std::deque<Card> pile, int length) {
+        // 98 is for hidden card
+        // 99 is for non-existent card
+        std::vector<double> double_vector;
+        for (auto & card : pile) {
+            if (card.hidden) {
+                double_vector.push_back(98.0);
+            } else {
+                double_vector.push_back((int) card);
+            }
+
+        }
+        double_vector.resize(length, 99.0);
+        return double_vector;
+    }
+
     // Rendering Methods ===============================================================================================
 
     void RenderPile(std::deque<Card> pile) {
@@ -355,13 +380,32 @@ namespace open_spiel::klondike {
     }
 
     std::string             KlondikeState::InformationStateString(Player player) const {
-        // TODO: I don't know if this is correct
-        // Sequence of actions that generate the current information state
+        /*
+        Returns an identifier for the current information state. Different ground states can yield the same
+        information state for a player when the only part of the state that differs is not observable by that player.
+        (e.g. opponents' cards in poker)
+
+        The information state should be perfect-recall, i.e. is two states have a different information state, then all
+        successors of one must have a different InformationState to all successors of the other. For example, in
+        tic-tac-toe, the current state of the board would not be a perfect-recall representation, but the sequence of
+        moves played would be.
+        */
+
         return HistoryString();
     }
 
     std::string             KlondikeState::ObservationString(Player player) const {
-        // TODO: I don't know if this is correct
+        /*
+        An observation should have the following properties:
+        - It has at most the same information content as the information state
+        - The complete history of observations and our actions over the course of the game is
+          sufficient to reconstruct the information state.
+
+        For example, the cards revealed and bets made since our previous move in poker, or the current
+        state of the board in chess. Note that neither of these are valid information states, since the same
+        observation may arise from two different observation histories (i.e. they are not perfect recall)
+        */
+
         //SPIEL_CHECK_GE(player, 0);
         //SPIEL_CHECK_LT(player, num_players_);
 
@@ -454,6 +498,9 @@ namespace open_spiel::klondike {
         // =============================================================================================================
 
         if (IsChanceNode()) {return false;}
+        if (deck.times_rebuilt > 3) {
+            return true;
+        }
         else {
 
             // =============================================================================================================
@@ -497,7 +544,11 @@ namespace open_spiel::klondike {
     }
 
     bool                    KlondikeState::IsChanceNode() const {
-        return setup_counter_ <= 51;
+        if (!is_setup_ or setup_counter_ < 52) {
+            return true;
+        } else {
+            return false;
+        }
     }
 
     bool                    KlondikeState::IsReversible(Action action) const {
@@ -850,6 +901,72 @@ namespace open_spiel::klondike {
 
     }
 
+    void                    KlondikeState::InformationStateTensor(Player player, std::vector<double> * values) const {
+        /*
+        Vector form, useful for neural-net function approximation approaches. The size of the vector must match
+        Game::InformationStateShape() with values in lexicographic order. E.g. for 2x4x3, order would be:
+        (0,0,0), (0,0,1), (0,0,2), (0,1,0), ... , (1, 3, 2).
+        This function should resize the supplied vector if required.
+        */
+
+        // Resizes "values" and fills with 0.0
+        values->resize(game_->InformationStateTensorShape()[0]);
+        std::fill(values->begin(), values->end(), kInvalidAction);
+
+        // Fill with actions from history
+        int i = 0;
+        for (auto & action : History()) {
+            (*values)[i] = action;
+            ++i;
+        }
+
+    };
+
+    void                    KlondikeState::ObservationTensor(Player player, std::vector<double> * values) const {
+        /*
+        Returns the view of the game, preferably from the `player`'s perspective.
+
+        Total Length = 24 + 24 + (4 * 13) + (7 * 19) = 48 + 52 + 133 = 233
+        - Deck       = 24
+        - Waste      = 24
+        - Foundation = 13 (number of cards in a suit)
+        - Tableau    = 19 (max hidden cards = 6, number of cards K -> A = 13)
+        */
+
+        // Insert tableau cards observation
+        for (auto tableau : tableaus) {
+            std::vector<double> tableau_observation = PileObservation(tableau.cards, 19);
+            values->insert(values->begin(), tableau_observation.begin(), tableau_observation.end());
+        }
+
+        // Insert foundation cards observation
+        for (auto foundation : foundations) {
+            std::vector<double> foundation_observation = PileObservation(foundation.cards, 13);
+            values->insert(values->begin(), foundation_observation.begin(), foundation_observation.end());
+        }
+
+        // Insert waste cards observation
+        std::vector<double> waste_observation = PileObservation(deck.waste, 24);
+        values->insert(values->begin(), waste_observation.begin(), waste_observation.end());
+
+        // Insert deck cards observation
+        std::vector<double> cards_observation = PileObservation(deck.cards, 24);
+        values->insert(values->begin(), cards_observation.begin(), cards_observation.end());
+
+
+
+
+
+
+
+
+
+
+
+
+
+    };
+
     double                  KlondikeState::CurrentScore() const {
         std::map<std::string, double> foundation_points = {
                 {"A", 100.0},
@@ -895,19 +1012,14 @@ namespace open_spiel::klondike {
     }
 
     std::vector<double>     KlondikeState::Returns() const {
-        // TODO: Implementation is no longer correct
-        if (!IsTerminal()) {
-            return {0.0};
-        } else {
-            return {1.0};
-        }
+        return {CurrentScore()};
     }
 
     std::vector<double>     KlondikeState::Rewards() const {
         if (CurrentPlayer() != kChancePlayerId) {
-            return {previous_score, CurrentScore() - previous_score};
+            return {CurrentScore() - previous_score};
         } else {
-            return {previous_score, 0.0};
+            return {0.0};
         }
     }
 
@@ -1215,6 +1327,24 @@ namespace open_spiel::klondike {
         return source_cards;
     }
 
+    std::vector<std::pair<Action, double>> KlondikeState::ChanceOutcomes() const {
+        SPIEL_CHECK_TRUE(IsChanceNode());
+        std::vector<std::pair<Action, double>> outcomes;
+
+        if (!is_setup_) {
+            const double p = 1.0 / deck.cards.size();
+            for (const auto & card : deck.cards) {
+                outcomes.emplace_back((int) card, p);
+            }
+        }
+
+        if (setup_counter_ == 52) {
+            outcomes.emplace_back(kSetup, 1.0);
+        }
+
+        return outcomes;
+    }
+
     const std::deque<Card> * KlondikeState::GetContainer(Card card_to_find) const {
 
         for (auto & tableau : tableaus) {
@@ -1242,22 +1372,7 @@ namespace open_spiel::klondike {
         return std::unique_ptr<State>(new KlondikeState(*this));
     }
 
-    std::vector<std::pair<Action, double>> KlondikeState::ChanceOutcomes() const {
-        SPIEL_CHECK_TRUE(IsChanceNode());
-        std::vector<std::pair<Action, double>> outcomes;
-
-        if (!is_setup_) {
-            const double p = 1.0 / deck.cards.size();
-            for (const auto & card : deck.cards) {
-                outcomes.emplace_back((int) card, p);
-            }
-        }
-        return outcomes;
-    }
-
-
     // KlondikeGame Methods ============================================================================================
-
 
     KlondikeGame::KlondikeGame(const GameParameters &params) :
         Game(kGameType, params),
@@ -1284,6 +1399,15 @@ namespace open_spiel::klondike {
     double KlondikeGame::MaxUtility() const {
         return 3220.0;
     }
+
+    std::vector<int> KlondikeGame::InformationStateTensorShape() const {
+        // Not sure what the max length of a game is
+        return {200};
+    };
+
+    std::vector<int> KlondikeGame::ObservationTensorShape() const {
+        return {233};
+    };
 
     std::unique_ptr<State> KlondikeGame::NewInitialState() const {
         return std::unique_ptr<State>(new KlondikeState(shared_from_this()));

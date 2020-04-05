@@ -340,6 +340,7 @@ namespace open_spiel::klondike {
         std::deque<Card> cards;
         std::deque<Card> waste;
         std::deque<Card> initial_order;
+        int              times_rebuilt = 0;
 
         Deck();
         void shuffle(int seed);
@@ -348,9 +349,7 @@ namespace open_spiel::klondike {
         std::deque<Card> deal(unsigned long int num_cards);
 
     private:
-        int  times_rebuilt = 0;
         bool is_shuffled = false;
-
     };
 
     class Foundation {
@@ -379,6 +378,7 @@ namespace open_spiel::klondike {
         std::string             previous_string;
         double                  previous_score;
         bool                    last_move_was_reversible;
+        bool                    is_terminal;
 
         explicit                KlondikeState(std::shared_ptr<const Game> game);
         Player                  CurrentPlayer() const override;
@@ -403,16 +403,16 @@ namespace open_spiel::klondike {
         std::string InformationStateString(Player player) const override;
         std::string ObservationString(Player player) const override;
 
-        //void InformationStateTensor(Player player, std::vector<double> * values) const override;
-        //void ObservationTensor(Player player, std::vector<double> * values) const override;
+        void InformationStateTensor(Player player, std::vector<double> * values) const override;
+        void ObservationTensor(Player player, std::vector<double> * values) const override;
 
         const std::deque<Card> * GetContainer(Card card_to_find) const;
         std::vector<std::pair<Action, double>> ChanceOutcomes() const override;
 
     private:
-        int  cur_player_;
-        int  setup_counter_{};
-        bool is_setup_;
+        int    cur_player_;
+        int    setup_counter_{};
+        bool   is_setup_;
         double score_;
         double CurrentScore() const;
     };
@@ -426,8 +426,8 @@ namespace open_spiel::klondike {
         double   MinUtility() const override;
         double   MaxUtility() const override;
 
-        //std::vector<int> InformationStateTensorShape() const override;
-        //std::vector<int> ObservationTensorShape() const override;
+        std::vector<int> InformationStateTensorShape() const override;
+        std::vector<int> ObservationTensorShape() const override;
 
         std::unique_ptr<State>      NewInitialState() const override;
         std::shared_ptr<const Game> Clone() const override;
