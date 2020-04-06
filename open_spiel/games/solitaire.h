@@ -146,8 +146,9 @@ namespace open_spiel::solitaire {
 
         // Other Methods ===============================================================================================
 
-        void draw(unsigned long num_cards);                               // Moves cards to the waste
-        void rebuild();
+        std::vector<Card> Sources() const;      // Returns vector containing the top card of the waste pile
+        void draw(unsigned long num_cards);     // Moves cards to the waste
+        void rebuild();                         // Repopulates the deck in the order cards were originally drawn
 
     };
 
@@ -156,20 +157,20 @@ namespace open_spiel::solitaire {
 
         // Attributes ==================================================================================================
 
-        const std::string suit;                     // Indicates the suit of cards that can be added
-        std::deque<Card>  cards;                    // Contains the cards inside the foundation
+        const std::string suit;                         // Indicates the suit of cards that can be added
+        std::deque<Card>  cards;                        // Contains the cards inside the foundation
 
         // Constructors ================================================================================================
 
-        explicit Foundation(std::string suit);      // Construct an empty foundation of a given suit
+        explicit Foundation(std::string suit);          // Construct an empty foundation of a given suit
 
         // Other Methods ===============================================================================================
 
-        std::vector<Card> Sources() const;                // Cards in the foundation that can be moved
-        std::vector<Card> Targets() const;                // A card in the foundation that can have cards moved to it
+        std::vector<Card> Sources() const;              // Cards in the foundation that can be moved
+        std::vector<Card> Targets() const;              // A card in the foundation that can have cards moved to it
 
-        std::vector<Card> Split(Card card);               // Splits on given card and returns it and all cards beneath it
-        void Extend(std::vector<Card> source_cards);      // Adds cards to the foundation
+        std::vector<Card> Split(Card card);             // Splits on given card and returns it and all cards beneath it
+        void Extend(std::vector<Card> source_cards);    // Adds cards to the foundation
 
     };
 
@@ -218,6 +219,7 @@ namespace open_spiel::solitaire {
 
     class SolitaireState : public State {
     public:
+
         // Attributes ==================================================================================================
 
         Deck                    deck;
@@ -249,8 +251,8 @@ namespace open_spiel::solitaire {
 
         // Other Methods ===============================================================================================
 
-        std::vector<Card>      Targets(const std::string & location) const;
-        std::vector<Card>      Sources(const std::string & location) const;
+        std::vector<Card>      Targets(std::optional<std::string> location = {}) const;
+        std::vector<Card>      Sources(std::optional<std::string> location = {}) const;
         std::vector<Move>      CandidateMoves() const;
         void                   MoveCards(Move & move);
 

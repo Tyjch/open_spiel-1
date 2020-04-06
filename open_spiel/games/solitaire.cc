@@ -4,6 +4,7 @@
 #include <numeric>
 #include <random>
 #include <algorithm>
+#include <optional>
 #include <math.h>
 
 #include "open_spiel/abseil-cpp/absl/strings/str_format.h"
@@ -15,6 +16,8 @@
 #define WHITE  "\033[37m"
 #define YELLOW "\033[33m"
 #define RESET  "\033[0m"
+
+
 
 namespace open_spiel::solitaire {
 
@@ -51,7 +54,7 @@ namespace open_spiel::solitaire {
         } else if (suit == "h" or suit == "d") {
             return {"s", "c"};
         } else {
-            // TODO: Raise an error here
+            std::cout << YELLOW << "WARNING: `suit` is not in (s, h, c, d)" << RESET << std::endl;
         }
     }
 
@@ -144,8 +147,6 @@ namespace open_spiel::solitaire {
         }
     }
 
-
-
     // Deck Methods ====================================================================================================
 
     Deck::Deck() {
@@ -155,6 +156,18 @@ namespace open_spiel::solitaire {
         for (auto & card : cards) {
             card.location = kDeck;
         }
+    }
+
+    std::vector<Card> Deck::Sources() const {
+        // If the waste is not empty, sources is just a vector of the top card of the waste
+        if (not waste.empty()) {
+            return {waste.back()};
+        }
+        // If it is empty, sources is just an empty vector
+        else {
+            return {};
+        }
+
     }
 
     void Deck::draw(unsigned long num_cards) {
@@ -194,18 +207,27 @@ namespace open_spiel::solitaire {
     };
 
     std::vector<Card> Foundation::Sources() const {
+        // If the foundation is not empty, sources is just a vector of the top card of the foundation
         if (not cards.empty()) {
             return {cards.back()};
-        } else {
+        }
+        // If it is empty, then sources is just an empty vector
+        else {
             return {};
         }
     }
 
     std::vector<Card> Foundation::Targets() const {
+        // If the foundation is not empty, targets is just the top card of the foundation
         if (not cards.empty()) {
             return {cards.back()};
-        } else {
-            return {};
+        }
+        // If it is empty, then targets is just a special card with no rank and a suit matching this foundation
+        else {
+            auto card     = Card("", suit);
+            card.hidden   = false;
+            card.location = kFoundation;
+            return {card};
         }
     }
 
@@ -219,6 +241,7 @@ namespace open_spiel::solitaire {
     }
 
     void Foundation::Extend(std::vector<Card> source_cards) {
+        // TODO: Cards location should be changed to kFoundation when added
         for (auto card : source_cards) {
             cards.push_back(card);
         }
@@ -237,6 +260,7 @@ namespace open_spiel::solitaire {
     };
 
     std::vector<Card> Tableau::Sources() const {
+        // If the tableau is not empty, sources is just a vector of all cards that are not hidden
         if (not cards.empty()) {
             std::vector<Card> sources;
             for (auto & card : cards) {
@@ -245,19 +269,28 @@ namespace open_spiel::solitaire {
                 }
             }
             return sources;
-        } else {
-            auto card = Card();
-            card.hidden = false;
-            card.location = kTableau;
-            return {card};
+        }
+        // If it is empty, then sources is just an empty vector
+        else {
+            return {};
         }
     }
 
     std::vector<Card> Tableau::Targets() const {
+        /*
+        DECISION: Should targets return a vector, even though it will only return one card?
+        */
+
+        // If the tableau is not empty, targets is just a vector of the top card of the tableau
         if (not cards.empty()) {
             return {cards.back()};
-        } else {
-            return {};
+        }
+        // If it is empty, then targets is just a special card with no rank or suit
+        else {
+            auto card     = Card();
+            card.hidden   = false;
+            card.location = kTableau;
+            return {card};
         }
     }
 
@@ -279,6 +312,7 @@ namespace open_spiel::solitaire {
     }
 
     void Tableau::Extend(std::vector<Card> source_cards) {
+        // TODO: Cards location should be changed to kTableau when added
         for (auto card : source_cards) {
             cards.push_back(card);
         }
@@ -304,7 +338,6 @@ namespace open_spiel::solitaire {
     // Overriden Methods -----------------------------------------------------------------------------------------------
 
     Player                  SolitaireState::CurrentPlayer() const {
-        // NOTE: 2nd method implemented
 
         // There are only two players in this game: chance and player 1.
         if (IsChanceNode()) {
@@ -325,7 +358,6 @@ namespace open_spiel::solitaire {
     }
 
     bool                    SolitaireState::IsChanceNode() const {
-        // NOTE: 1st method implemented
 
         if (not is_setup) {
             // If setup is not started, this is a chance node
@@ -349,7 +381,6 @@ namespace open_spiel::solitaire {
     }
 
     std::string             SolitaireState::ToString() const {
-        // NOTE: 3rd method implemented
         // TODO: Create methods that allow casting to std::string for card, deck, waste, foundation, and tableau
 
         std::string result;
@@ -388,6 +419,39 @@ namespace open_spiel::solitaire {
                 }
             }
         }
+
+        absl::StrAppend(&result, "\n\nTARGETS : ");
+        for (const Card & card : Targets()) {
+            absl::StrAppend(&result, card.ToString());
+        }
+
+        absl::StrAppend(&result, "\nSOURCES : ");
+        for (const Card & card : Sources()) {
+            absl::StrAppend(&result, card.ToString());
+        }
+
+        /*
+	    2660  BLACK SPADE SUIT
+        2665  BLACK HEART SUIT
+        2663  BLACK CLUB SUIT
+        2666  BLACK DIAMOND SUIT
+
+        2664  WHITE SPADE SUIT
+        2661  WHITE HEART SUIT
+        2667  WHITE CLUB SUIT
+        2662  WHITE DIAMOND SUIT
+        */
+
+        absl::StrAppend(&result, "\nGLYPHS : ");
+        absl::StrAppend(&result, WHITE,"\U00002660", RESET, " ");  // spades
+        absl::StrAppend(&result, RED,  "\U00002665", RESET, " ");  // hearts
+        absl::StrAppend(&result, WHITE,"\U00002663", RESET, " ");  // clubs
+        absl::StrAppend(&result, RED,  "\U00002666", RESET, " ");  // diamonds
+        absl::StrAppend(&result, "\U0001F0A0", " ");               // playing card back
+
+
+
+        absl::StrAppend(&result, "\n");
 
         return result;
     }
@@ -523,37 +587,70 @@ namespace open_spiel::solitaire {
 
     // Other Methods ---------------------------------------------------------------------------------------------------
 
-    std::vector<Card>       SolitaireState::Targets(const std::string & location) const {
-        // TODO
+    std::vector<Card>       SolitaireState::Targets(std::optional<std::string> location) const {
+
+        std::string loc = location.value_or("all");
+        std::vector<Card> targets;
+
+        // Gets targets from tableaus
+        if (loc == "tableau" or loc == "all") {
+            for (Tableau tableau : tableaus) {
+                std::vector<Card> current_targets = tableau.Targets();
+                targets.insert(targets.end(), current_targets.begin(), current_targets.end());
+            }
+        }
+
+        // Gets targets from foundations
+        if (loc == "foundation" or loc == "all") {
+            for (Foundation foundation : foundations) {
+                std::vector<Card> current_targets = foundation.Targets();
+                targets.insert(targets.end(), current_targets.begin(), current_targets.end());
+            }
+        }
+
+        // Returns targets as a vector of cards in all piles specified by "location"
+        return targets;
+
     }
 
-    std::vector<Card>       SolitaireState::Sources(const std::string & location) const {
-        // TODO
+    std::vector<Card>       SolitaireState::Sources(std::optional<std::string> location) const {
+
+        std::string loc = location.value_or("all");
+        std::vector<Card> sources;
+
+        // Gets sources from tableaus
+        if (loc == "tableau" or loc == "all") {
+            for (Tableau tableau : tableaus) {
+                std::vector<Card> current_sources = tableau.Sources();
+                sources.insert(sources.end(), current_sources.begin(), current_sources.end());
+            }
+        }
+
+        // Gets sources from foundations
+        if (loc == "foundation" or loc == "all") {
+            for (Foundation foundation : foundations) {
+                std::vector<Card> current_sources = foundation.Sources();
+                sources.insert(sources.end(), current_sources.begin(), current_sources.end());
+            }
+        }
+
+        // Gets sources from waste
+        if (loc == "waste" or loc == "all") {
+            std::vector<Card> current_sources = deck.Sources();
+            sources.insert(sources.end(), current_sources.begin(), current_sources.end());
+        }
+
+        // Returns sources as a vector of cards in all piles specified by "location"
+        return sources;
     }
 
     std::vector<Move>       SolitaireState::CandidateMoves() const {
-
+        // TODO
     }
 
     void                    SolitaireState::MoveCards(Move & move) {
-
+        // TODO
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
     // SolitaireGame Methods ===========================================================================================
