@@ -128,7 +128,6 @@ namespace open_spiel::solitaire {
         std::vector<Card> LegalChildren() const;    // Get legal children of the card depending on its location
         std::string ToString() const;
 
-
     };
 
     class Deck {
@@ -202,6 +201,10 @@ namespace open_spiel::solitaire {
         Card target;
         Card source;
 
+        // Constructors ================================================================================================
+
+        Move(Card target_card, Card source_card);
+
         // Other Methods ===============================================================================================
 
         std::string ToString() const;
@@ -246,16 +249,18 @@ namespace open_spiel::solitaire {
 
         // Other Methods ===============================================================================================
 
-        //std::string         GetContainerType(Card card) const;
-        std::vector<Card>   Targets(const std::string & location) const;
-        std::vector<Card>   Sources(const std::string & location) const;
-        std::vector<Action> CandidateActions() const;
+        std::vector<Card>      Targets(const std::string & location) const;
+        std::vector<Card>      Sources(const std::string & location) const;
+        std::vector<Move>      CandidateMoves() const;
+        void                   MoveCards(Move & move);
 
-        // TODO: This should take an Move object instead of a pair of cards
-        void                MoveCards(Move & move);
+        /*
+        // std::string         GetContainerType(Card card) const;
         // bool                IsReversible(Action action) const;
         // const std::deque<Card> * GetContainer(Card card) const;
         // double CurrentScore() const;
+        */
+
     private:
         bool is_setup;
 

@@ -57,6 +57,10 @@ namespace open_spiel::solitaire {
 
     // Card Methods ====================================================================================================
 
+    /* Special cards:
+     - Card("", "", kTableau) is an empty tableau,
+     - Card("", "s", kFoundation) is an empty foundation */
+
     Card::Card() : rank(""), suit(""), hidden(true), location(kMissing) {};
 
     Card::Card(std::string rank, std::string suit) : rank(rank), suit(suit), hidden(true), location(kMissing) {};
@@ -83,12 +87,19 @@ namespace open_spiel::solitaire {
     }
 
     std::vector<Card> Card::LegalChildren() const {
+
         std::vector<Card>        legal_children = {};
         std::string              child_rank;
         std::vector<std::string> child_suits;
 
         switch (location) {
             case kTableau:
+                // Handles empty tableau cards (children are kings of all suits)
+                if (rank == "") {
+                    child_rank  = "K";
+                    child_suits = SUITS;
+                }
+                // Handles regular cards (except aces)
                 if (rank != "A") {
                     child_rank  = RANKS.at(GetIndex(RANKS, rank) - 1);
                     child_suits = GetOppositeSuits(suit);
@@ -96,6 +107,12 @@ namespace open_spiel::solitaire {
                 break;
 
             case kFoundation:
+                // Handles empty foundation cards (children are aces of same suit)
+                if (rank == "") {
+                    child_rank  = "A";
+                    child_suits = {suit};
+                }
+                // Handles regular cards (except kings)
                 if (rank != "K") {
                     child_rank  = RANKS.at(GetIndex(RANKS, rank) + 1);
                     child_suits = {suit};
@@ -126,6 +143,7 @@ namespace open_spiel::solitaire {
             return result;
         }
     }
+
 
 
     // Deck Methods ====================================================================================================
@@ -228,7 +246,10 @@ namespace open_spiel::solitaire {
             }
             return sources;
         } else {
-            return {};
+            auto card = Card();
+            card.hidden = false;
+            card.location = kTableau;
+            return {card};
         }
     }
 
@@ -261,6 +282,13 @@ namespace open_spiel::solitaire {
         for (auto card : source_cards) {
             cards.push_back(card);
         }
+    }
+
+    // Move Methods ====================================================================================================
+
+    Move::Move(Card target_card, Card source_card) {
+        target = target_card;
+        source = source_card;
     }
 
     // SolitaireState Methods ==========================================================================================
@@ -404,8 +432,7 @@ namespace open_spiel::solitaire {
     }
 
     void                    SolitaireState::DoApplyAction(Action move) {
-        std::cout << "Inside DoApplyAction()" << std::endl;
-        std::cout << "Action = " << move << std::endl;
+        std::cout << "Inside DoApplyAction() : Action = " << move << std::endl;
 
         // Handles kSetup
         if (move == kSetup) {
@@ -458,6 +485,10 @@ namespace open_spiel::solitaire {
             }
             deck.draw(3);
         }
+
+        else {
+            std::cout << "Applying move = " << move << std::endl;
+        }
     }
 
     std::vector<double>     SolitaireState::Returns() const {
@@ -500,8 +531,8 @@ namespace open_spiel::solitaire {
         // TODO
     }
 
-    std::vector<Action>     SolitaireState::CandidateActions() const {
-        // TODO
+    std::vector<Move>       SolitaireState::CandidateMoves() const {
+
     }
 
     void                    SolitaireState::MoveCards(Move & move) {
