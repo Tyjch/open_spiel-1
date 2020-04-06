@@ -57,7 +57,7 @@ namespace open_spiel::solitaire {
 
     // Card Methods ====================================================================================================
 
-    Card::Card() : rank(""), suit(""), hidden(false), location(kMissing) {};
+    Card::Card() : rank(""), suit(""), hidden(true), location(kMissing) {};
 
     Card::Card(std::string rank, std::string suit) : rank(rank), suit(suit), hidden(true), location(kMissing) {};
 
@@ -75,6 +75,10 @@ namespace open_spiel::solitaire {
     }
 
     bool Card::operator==(Card & other_card) const {
+        return rank == other_card.rank and suit == other_card.suit;
+    }
+
+    bool Card::operator==(const Card & other_card) const {
         return rank == other_card.rank and suit == other_card.suit;
     }
 
@@ -109,36 +113,60 @@ namespace open_spiel::solitaire {
         return legal_children;
     }
 
+    std::string Card::ToString() const {
+        if (hidden) {
+            return "[] ";
+        } else {
+            std::string result;
+            if (suit == "s" or suit == "c") {
+                absl::StrAppend(&result, WHITE, rank, suit, RESET, " ");
+            } else if (suit == "h" or suit == "d") {
+                absl::StrAppend(&result, RED, rank, suit, RESET, " ");
+            }
+            return result;
+        }
+    }
+
+
     // Deck Methods ====================================================================================================
 
     Deck::Deck() {
-        for (const auto & suit : SUITS) {
-            for (const auto & rank : RANKS) {
-                cards.emplace_back(Card(rank, suit));
-            }
+        for (int i = 1; i <= 24; i++) {
+            cards.emplace_back();
+        }
+        for (auto & card : cards) {
+            card.location = kDeck;
         }
     }
 
-    void Deck::draw(int num_cards) {
-        std::deque<Card> dealt_cards = deal(num_cards);
-        for (auto & card : dealt_cards) {
-            card.hidden = false;
-        }
-        waste.insert(waste.begin(), dealt_cards.begin(), dealt_cards.end());
-    }
-
-    std::deque<Card> Deck::deal(unsigned long int num_cards) {
-        std::deque<Card> dealt_cards;
+    void Deck::draw(unsigned long num_cards) {
+        std::deque<Card> drawn_cards;
         num_cards = std::min(num_cards, cards.size());
-        int i = 0;
-        while (i < num_cards) {
-            Card card = cards.front();
-            dealt_cards.push_back(card);
+
+        int i = 1;
+        while (i <= num_cards) {
+            auto card = cards.front();
+            card.location = kWaste;
+            drawn_cards.push_back(card);
             cards.pop_front();
             i++;
         }
-        return dealt_cards;
 
+        waste.insert(waste.begin(), drawn_cards.begin(), drawn_cards.end());
+    }
+
+    void Deck::rebuild() {
+        if (cards.empty()) {
+            for (const Card & card : initial_order) {
+                if (std::find(waste.begin(), waste.end(), card) != waste.end()) {
+                    cards.push_back(card);
+                }
+            }
+            waste.clear();
+            times_rebuilt += 1;
+        } else {
+            std::cout << YELLOW << "WARNING: Cannot rebuild a non-empty deck" << RESET << std::endl;
+        }
     }
 
     // Foundation Methods ==============================================================================================
@@ -181,6 +209,7 @@ namespace open_spiel::solitaire {
     // Tableau Methods =================================================================================================
 
     Tableau::Tableau(int num_cards) {
+
         for (int i = 1; i <= num_cards; i++) {
             cards.emplace_back();
         }
@@ -292,7 +321,47 @@ namespace open_spiel::solitaire {
     }
 
     std::string             SolitaireState::ToString() const {
-        return "To String";
+        // NOTE: 3rd method implemented
+        // TODO: Create methods that allow casting to std::string for card, deck, waste, foundation, and tableau
+
+        std::string result;
+
+        absl::StrAppend(&result, "DECK        : ");
+        for (const Card & card : deck.cards) {
+            absl::StrAppend(&result, card.ToString());
+        }
+
+        absl::StrAppend(&result, "\nWASTE       : ");
+        for (const Card & card : deck.waste) {
+            absl::StrAppend(&result, card.ToString());
+        }
+
+        absl::StrAppend(&result, "\nORDER       : ");
+        for (const Card & card : deck.initial_order) {
+            absl::StrAppend(&result, card.ToString());
+        }
+
+        absl::StrAppend(&result, "\nFOUNDATIONS : ");
+        for (const Foundation & foundation : foundations) {
+            if (not foundation.cards.empty()) {
+                absl::StrAppend(&result, "\n");
+                for (const Card & card : foundation.cards) {
+                    absl::StrAppend(&result, card.ToString());
+                }
+            }
+        }
+
+        absl::StrAppend(&result, "\nTABLEAUS    : ");
+        for (const Tableau & tableau : tableaus) {
+            if (not tableau.cards.empty()) {
+                absl::StrAppend(&result, "\n");
+                for (const Card & card : tableau.cards) {
+                    absl::StrAppend(&result, card.ToString());
+                }
+            }
+        }
+
+        return result;
     }
 
     std::string             SolitaireState::ActionToString(Player player, Action action_id) const {
@@ -301,14 +370,21 @@ namespace open_spiel::solitaire {
                 return "kStartSetup";
                 break;
             }
-            case (1) : {
-                return "kEndSetup";
+            case 1 ... 52 : {
+                return "kReveal";
+                break;
+            }
+            case (53) : {
+                return "kDraw";
                 break;
             }
             default : {
-                return "Missing Action";
+                return "kMissingAction";
+                break;
             }
         }
+
+
     }
 
     std::string             SolitaireState::InformationStateString(Player player) const {
@@ -328,11 +404,59 @@ namespace open_spiel::solitaire {
     }
 
     void                    SolitaireState::DoApplyAction(Action move) {
-        if (move == kStartSetup) {
+        std::cout << "Inside DoApplyAction()" << std::endl;
+        std::cout << "Action = " << move << std::endl;
+
+        // Handles kSetup
+        if (move == kSetup) {
             for (int i = 1; i <= 7; i++) {
                 tableaus.emplace_back(i);
             }
             is_setup = true;
+        }
+
+        // Handles kReveal
+        else if (1 <= move and move <= 52) {
+            // Get the rank and suit to reveal, cards start at 0 instead of 1
+            // which is why we subtract 1 to move here.
+
+            Card revealed_card = Card(move - 1);
+            bool found_hidden_card = false;
+
+            // Find the first hidden card in the tableaus
+            for (auto & tableau : tableaus) {
+                if (tableau.cards.back().hidden) {
+                    tableau.cards.back().rank = revealed_card.rank;
+                    tableau.cards.back().suit = revealed_card.suit;
+                    tableau.cards.back().hidden = false;
+                    found_hidden_card = true;
+                    break;
+                }
+            }
+
+            // Find the first hidden card in the waste
+            if (not found_hidden_card) {
+                for (auto & card : deck.waste) {
+                    if (card.hidden) {
+                        card.rank = revealed_card.rank;
+                        card.suit = revealed_card.suit;
+                        card.hidden = false;
+                        deck.initial_order.push_back(card);
+                        break;
+                    }
+                }
+            }
+
+            // Add move to revealed cards so we don't try to reveal it again
+            revealed_cards.push_back(move);
+        }
+
+        // Handles kDraw
+        else if (move == kDraw) {
+            if (deck.cards.empty()) {
+                deck.rebuild();
+            }
+            deck.draw(3);
         }
     }
 
@@ -345,12 +469,24 @@ namespace open_spiel::solitaire {
     }
 
     std::vector<Action>     SolitaireState::LegalActions() const {
-        return {kInvalidAction};
+        return {kDraw};
     }
 
     std::vector<std::pair<Action, double>> SolitaireState::ChanceOutcomes() const {
         if (!is_setup) {
-            return {{kStartSetup, 1.0}};
+            return {{kSetup, 1.0}};
+        } else {
+            std::vector<std::pair<Action, double>> outcomes;
+            const double p = 1.0 / (52 - revealed_cards.size());
+
+            for (int i = 1; i <= 52; i++) {
+                if (std::find(revealed_cards.begin(), revealed_cards.end(), i) != revealed_cards.end()) {
+                    continue;
+                } else {
+                    outcomes.emplace_back(i, p);
+                }
+            }
+            return outcomes;
         }
     }
 

@@ -30,7 +30,60 @@ namespace open_spiel::solitaire {
 
     enum ActionType {
         // TODO: Actions need to be contiguous integers starting from 0
-        kStartSetup = 0,
+        kSetup = 0,
+        kRevealAs = 1,
+        kReveal2s = 2,
+        kReveal3s = 3,
+        kReveal4s = 4,
+        kReveal5s = 5,
+        kReveal6s = 6,
+        kReveal7s = 7,
+        kReveal8s = 8,
+        kReveal9s = 9,
+        kRevealTs = 10,
+        kRevealJs = 11,
+        kRevealQs = 12,
+        kRevealKs = 13,
+        kRevealAh = 14,
+        kReveal2h = 15,
+        kReveal3h = 16,
+        kReveal4h = 17,
+        kReveal5h = 18,
+        kReveal6h = 19,
+        kReveal7h = 20,
+        kReveal8h = 21,
+        kReveal9h = 22,
+        kRevealTh = 23,
+        kRevealJh = 24,
+        kRevealQh = 25,
+        kRevealKh = 26,
+        kRevealAc = 27,
+        kReveal2c = 28,
+        kReveal3c = 29,
+        kReveal4c = 30,
+        kReveal5c = 31,
+        kReveal6c = 32,
+        kReveal7c = 33,
+        kReveal8c = 34,
+        kReveal9c = 35,
+        kRevealTc = 36,
+        kRevealJc = 37,
+        kRevealQc = 38,
+        kRevealKc = 39,
+        kRevealAd = 40,
+        kReveal2d = 41,
+        kReveal3d = 42,
+        kReveal4d = 43,
+        kReveal5d = 44,
+        kReveal6d = 45,
+        kReveal7d = 46,
+        kReveal8d = 47,
+        kReveal9d = 48,
+        kRevealTd = 49,
+        kRevealJd = 50,
+        kRevealQd = 51,
+        kRevealKd = 52,
+        kDraw     = 53,
 
 
     };
@@ -68,10 +121,13 @@ namespace open_spiel::solitaire {
         // Operators ===================================================================================================
 
         bool operator==(Card & other_card) const;                                   // Compare two cards for equality
+        bool operator==(const Card & other_card) const;
 
         // Other Methods ===============================================================================================
 
         std::vector<Card> LegalChildren() const;    // Get legal children of the card depending on its location
+        std::string ToString() const;
+
 
     };
 
@@ -89,18 +145,10 @@ namespace open_spiel::solitaire {
 
         Deck();     // Default constructor
 
-        // Operators ===================================================================================================
-
-        // friend std::ostream & operator<<(std::ostream & os, const Deck & deck);     // Output to stream
-
         // Other Methods ===============================================================================================
 
-        // TODO: I don't know if shuffle is even needed.
-        void draw(int num_cards);                               // Moves cards to the waste
-        std::deque<Card> deal(unsigned long int num_cards);     // Removes a certain number of cards and returns them
-        // void shuffle(int seed);                                  // Shuffles the cards deterministically
-        // void rebuild();                                         // Reconstructs cards from initial order
-
+        void draw(unsigned long num_cards);                               // Moves cards to the waste
+        void rebuild();
 
     };
 
@@ -116,17 +164,13 @@ namespace open_spiel::solitaire {
 
         explicit Foundation(std::string suit);      // Construct an empty foundation of a given suit
 
-        // Operators ===================================================================================================
-
-        // friend std::ostream & operator<<(std::ostream & os, const Foundation & foundation);     // Output to stream
-
         // Other Methods ===============================================================================================
 
         std::vector<Card> Sources() const;                // Cards in the foundation that can be moved
         std::vector<Card> Targets() const;                // A card in the foundation that can have cards moved to it
 
-        std::vector<Card> Split(Card card);       // Splits on given card and returns it and all cards beneath it
-        void Extend(std::vector<Card> source_cards);       // Adds cards to the foundation
+        std::vector<Card> Split(Card card);               // Splits on given card and returns it and all cards beneath it
+        void Extend(std::vector<Card> source_cards);      // Adds cards to the foundation
 
     };
 
@@ -140,10 +184,6 @@ namespace open_spiel::solitaire {
         // Constructors ================================================================================================
 
         explicit Tableau(int num_cards);            // Construct a tableau with the given cards
-
-        // Operators ===================================================================================================
-
-        // friend std::ostream & operator<<(std::ostream & os, const Tableau & tableau);     // Output to stream
 
         // Other Methods ===============================================================================================
 
@@ -180,6 +220,7 @@ namespace open_spiel::solitaire {
         Deck                    deck;
         std::vector<Foundation> foundations;
         std::vector<Tableau>    tableaus;
+        std::vector<Action>     revealed_cards;
 
         // Constructors ================================================================================================
 

@@ -105,6 +105,7 @@ def main(_):
             action = np.random.choice(action_list, p=prob_list)
             print('Chosen Action:  ', action)
             print('Sampled outcome:', state.action_to_string(state.current_player(), action))
+            print(); print(str(state))
             state.apply_action(action)
 
         elif state.is_simultaneous_node():
@@ -122,7 +123,7 @@ def main(_):
 
         else:
             # Decision node: sample action for the single current player
-            print(color(' Decision Node ', fg='red', style='negative'))
+            print(color(' Decision Node ', fg='blue', style='negative'))
             print(); print(str(state))
 
             #print("Representations:")
