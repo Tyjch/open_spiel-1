@@ -95,28 +95,35 @@ namespace open_spiel::solitaire {
         std::string              child_rank;
         std::vector<std::string> child_suits;
 
+        // A hidden card has no legal children
+        if (hidden) {
+            return legal_children;
+        }
+
         switch (location) {
             case kTableau:
+
                 // Handles empty tableau cards (children are kings of all suits)
                 if (rank == "") {
                     child_rank  = "K";
                     child_suits = SUITS;
                 }
                 // Handles regular cards (except aces)
-                if (rank != "A") {
+                else if (rank != "A") {
                     child_rank  = RANKS.at(GetIndex(RANKS, rank) - 1);
                     child_suits = GetOppositeSuits(suit);
                 }
                 break;
 
             case kFoundation:
+
                 // Handles empty foundation cards (children are aces of same suit)
                 if (rank == "") {
                     child_rank  = "A";
                     child_suits = {suit};
                 }
                 // Handles regular cards (except kings)
-                if (rank != "K") {
+                else if (rank != "K") {
                     child_rank  = RANKS.at(GetIndex(RANKS, rank) + 1);
                     child_suits = {suit};
                 }
@@ -127,13 +134,16 @@ namespace open_spiel::solitaire {
         }
 
         for (auto child_suit : child_suits) {
-            legal_children.emplace_back(Card(child_rank, child_suit));
+            auto child   = Card(child_rank, child_suit);
+            child.hidden = false;
+            legal_children.push_back(child);
         }
 
         return legal_children;
     }
 
     std::string Card::ToString() const {
+        /* // Old Implementation
         if (hidden) {
             return "[] ";
         } else {
@@ -145,6 +155,53 @@ namespace open_spiel::solitaire {
             }
             return result;
         }
+        */
+
+        std::string result;
+
+        if (hidden) {
+            // Representation of a hidden card
+            absl::StrAppend(&result, "\U0001F0A0", " ");
+        }
+        else {
+            // Suit Color
+            if (suit == "s" or suit == "c") {
+                absl::StrAppend(&result, WHITE);
+            } else if (suit == "h" or suit == "d") {
+                absl::StrAppend(&result, RED);
+            }
+
+            // Special Cards
+            if (rank == "") {
+                // Handles special tableau cards which have no rank or suit
+                if (suit == "") {
+                    absl::StrAppend(&result, "\U0001F0BF");
+                }
+                // Handles special foundation cards which have a suit but not a rank
+                else {
+                    if (suit == "s") {
+                        absl::StrAppend(&result, "\U00002660");
+                    } else if (suit == "h") {
+                        absl::StrAppend(&result, "\U00002665");
+                    } else if (suit == "c") {
+                        absl::StrAppend(&result, "\U00002663");
+                    } else if (suit == "d") {
+                        absl::StrAppend(&result, "\U00002666");
+                    }
+                }
+            }
+
+            // Ordinary Cards
+            else {
+                absl::StrAppend(&result, rank, suit);
+            }
+
+
+
+        }
+
+        absl::StrAppend(&result, RESET, " ");
+        return result;
     }
 
     // Deck Methods ====================================================================================================
@@ -161,7 +218,7 @@ namespace open_spiel::solitaire {
     std::vector<Card> Deck::Sources() const {
         // If the waste is not empty, sources is just a vector of the top card of the waste
         if (not waste.empty()) {
-            return {waste.back()};
+            return {waste.front()};
         }
         // If it is empty, sources is just an empty vector
         else {
@@ -218,6 +275,7 @@ namespace open_spiel::solitaire {
     }
 
     std::vector<Card> Foundation::Targets() const {
+
         // If the foundation is not empty, targets is just the top card of the foundation
         if (not cards.empty()) {
             return {cards.back()};
@@ -243,6 +301,7 @@ namespace open_spiel::solitaire {
     void Foundation::Extend(std::vector<Card> source_cards) {
         // TODO: Cards location should be changed to kFoundation when added
         for (auto card : source_cards) {
+            card.location = kFoundation;
             cards.push_back(card);
         }
     }
@@ -250,7 +309,6 @@ namespace open_spiel::solitaire {
     // Tableau Methods =================================================================================================
 
     Tableau::Tableau(int num_cards) {
-
         for (int i = 1; i <= num_cards; i++) {
             cards.emplace_back();
         }
@@ -312,8 +370,8 @@ namespace open_spiel::solitaire {
     }
 
     void Tableau::Extend(std::vector<Card> source_cards) {
-        // TODO: Cards location should be changed to kTableau when added
         for (auto card : source_cards) {
+            card.location = kTableau;
             cards.push_back(card);
         }
     }
@@ -323,6 +381,12 @@ namespace open_spiel::solitaire {
     Move::Move(Card target_card, Card source_card) {
         target = target_card;
         source = source_card;
+    }
+
+    std::string Move::ToString() const {
+        std::string result;
+        absl::StrAppend(&result, target.ToString(), "\U00002190", " ",source.ToString());
+        return result;
     }
 
     // SolitaireState Methods ==========================================================================================
@@ -420,38 +484,20 @@ namespace open_spiel::solitaire {
             }
         }
 
-        absl::StrAppend(&result, "\n\nTARGETS : ");
+        absl::StrAppend(&result, "\n\nTARGETS (", Targets().size(), ") : ");
         for (const Card & card : Targets()) {
             absl::StrAppend(&result, card.ToString());
         }
 
-        absl::StrAppend(&result, "\nSOURCES : ");
+        absl::StrAppend(&result, "\nSOURCES (", Sources().size(), ") : ");
         for (const Card & card : Sources()) {
             absl::StrAppend(&result, card.ToString());
         }
 
-        /*
-	    2660  BLACK SPADE SUIT
-        2665  BLACK HEART SUIT
-        2663  BLACK CLUB SUIT
-        2666  BLACK DIAMOND SUIT
-
-        2664  WHITE SPADE SUIT
-        2661  WHITE HEART SUIT
-        2667  WHITE CLUB SUIT
-        2662  WHITE DIAMOND SUIT
-        */
-
-        absl::StrAppend(&result, "\nGLYPHS : ");
-        absl::StrAppend(&result, WHITE,"\U00002660", RESET, " ");  // spades
-        absl::StrAppend(&result, RED,  "\U00002665", RESET, " ");  // hearts
-        absl::StrAppend(&result, WHITE,"\U00002663", RESET, " ");  // clubs
-        absl::StrAppend(&result, RED,  "\U00002666", RESET, " ");  // diamonds
-        absl::StrAppend(&result, "\U0001F0A0", " ");               // playing card back
-
-
-
-        absl::StrAppend(&result, "\n");
+        absl::StrAppend(&result, "\n\nCANDIDATE MOVES : ");
+        for (const Move & move : CandidateMoves()) {
+            absl::StrAppend(&result, "\n", move.ToString());
+        }
 
         return result;
     }
@@ -500,9 +546,17 @@ namespace open_spiel::solitaire {
 
         // Handles kSetup
         if (move == kSetup) {
+
+            // Creates tableaus
             for (int i = 1; i <= 7; i++) {
                 tableaus.emplace_back(i);
             }
+
+            // Creates foundations
+            for (const auto & suit : SUITS) {
+                foundations.emplace_back(suit);
+            }
+
             is_setup = true;
         }
 
@@ -645,12 +699,51 @@ namespace open_spiel::solitaire {
     }
 
     std::vector<Move>       SolitaireState::CandidateMoves() const {
-        // TODO
+
+        std::vector<Move> candidate_moves;
+        std::vector<Card> targets = Targets();
+        std::vector<Card> sources = Sources();
+
+        // For target in targets ...
+        for (auto target : targets) {
+
+            // Get the targets legal children
+            std::vector<Card> legal_children = {};
+
+            try { legal_children = target.LegalChildren(); }
+            catch (std::out_of_range()) {
+                legal_children = {};
+                continue;
+            }
+
+            // For child in targets legal children ...
+            for (auto child : legal_children) {
+
+                // If a legal child is found in sources ...
+                if (std::find(sources.begin(), sources.end(), child) != sources.end()) {
+
+                    // Add target, source pair to candidate moves
+                    candidate_moves.emplace_back(target, child);
+                }
+            }
+        }
+
+        return candidate_moves;
+
     }
 
     void                    SolitaireState::MoveCards(Move & move) {
         // TODO
     }
+
+
+
+
+
+
+
+
+
 
 
     // SolitaireGame Methods ===========================================================================================
