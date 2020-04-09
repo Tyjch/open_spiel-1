@@ -5,6 +5,9 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <variant>
+#include <any>
+#include <unordered_map>
 #include "open_spiel/spiel.h"
 
 namespace open_spiel::solitaire {
@@ -25,13 +28,34 @@ namespace open_spiel::solitaire {
 
     const std::vector<std::string> SUITS = {"s", "h", "c", "d"};
     const std::vector<std::string> RANKS = {"A", "2", "3", "4", "5", "6", "7", "8", "9", "T", "J", "Q", "K"};
+    const std::map<std::string, double> FOUNDATION_POINTS = {
+            //region How many points you get for moving a card to the foundation
+            {"A", 100.0},
+            {"2", 90.0},
+            {"3", 80.0},
+            {"4", 70.0},
+            {"5", 60.0},
+            {"6", 50.0},
+            {"7", 40.0},
+            {"8", 30.0},
+            {"9", 20.0},
+            {"T", 10.0},
+            {"J", 10.0},
+            {"Q", 10.0},
+            {"K", 10.0}
+            //endregion
+    };
 
     // Enumerations ====================================================================================================
 
     enum ActionType {
-        // TODO: Actions need to be contiguous integers starting from 0
+
+        // Setup Action ================================================================================================
         kSetup = 0,
-        kRevealAs = 1,
+        
+        // Reveal Actions ==============================================================================================
+        // Spades ------------------------------------------------------------------------------------------------------
+        kRevealAs = 1,          
         kReveal2s = 2,
         kReveal3s = 3,
         kReveal4s = 4,
@@ -44,6 +68,8 @@ namespace open_spiel::solitaire {
         kRevealJs = 11,
         kRevealQs = 12,
         kRevealKs = 13,
+        
+        // Hearts ------------------------------------------------------------------------------------------------------
         kRevealAh = 14,
         kReveal2h = 15,
         kReveal3h = 16,
@@ -57,6 +83,8 @@ namespace open_spiel::solitaire {
         kRevealJh = 24,
         kRevealQh = 25,
         kRevealKh = 26,
+        
+        // Clubs -------------------------------------------------------------------------------------------------------
         kRevealAc = 27,
         kReveal2c = 28,
         kReveal3c = 29,
@@ -70,6 +98,8 @@ namespace open_spiel::solitaire {
         kRevealJc = 37,
         kRevealQc = 38,
         kRevealKc = 39,
+        
+        // Diamonds ----------------------------------------------------------------------------------------------------
         kRevealAd = 40,
         kReveal2d = 41,
         kReveal3d = 42,
@@ -83,9 +113,184 @@ namespace open_spiel::solitaire {
         kRevealJd = 50,
         kRevealQd = 51,
         kRevealKd = 52,
-        kDraw     = 53,
+        
+        // Draw Action =================================================================================================
+        kDraw = 53,
+        
+        // Special Moves ===============================================================================================
+        // To Empty Tableau --------------------------------------------------------------------------------------------
+        kMove__Ks,
+        kMove__Kh,
+        kMove__Kc,
+        kMove__Kd,
+        
+        // To Empty Foundation -----------------------------------------------------------------------------------------
+        kMove__Ah,
+        kMove__As,
+        kMove__Ac,
+        kMove__Ad,
 
+        // Foundation Moves ============================================================================================
+        // To Spades ---------------------------------------------------------------------------------------------------
+        kMoveAs2s,
+        kMove2s3s,
+        kMove3s4s,
+        kMove4s5s,
+        kMove5s6s,
+        kMove6s7s,
+        kMove7s8s,
+        kMove8s9s,
+        kMove9sTs,
+        kMoveTsJs,
+        kMoveJsQs,
+        kMoveQsKs,
+        
+        // To Hearts ---------------------------------------------------------------------------------------------------
+        kMoveAh2h, 
+        kMove2h3h,
+        kMove3h4h,
+        kMove4h5h,
+        kMove5h6h,
+        kMove6h7h,
+        kMove7h8h,
+        kMove8h9h,
+        kMove9hTh,
+        kMoveThJh,
+        kMoveJhQh,
+        kMoveQhKh,
+        
+        // To Clubs ----------------------------------------------------------------------------------------------------
+        kMoveAc2c,
+        kMove2c3c,
+        kMove3c4c,
+        kMove4c5c,
+        kMove5c6c,
+        kMove6c7c,
+        kMove7c8c,
+        kMove8c9c,
+        kMove9cTc,
+        kMoveTcJc,
+        kMoveJcQc,
+        kMoveQcKc,
+        
+        // To Diamonds -------------------------------------------------------------------------------------------------
+        kMoveAd2d,
+        kMove2d3d,
+        kMove3d4d,
+        kMove4d5d,
+        kMove5d6d,
+        kMove6d7d,
+        kMove7d8d,
+        kMove8d9d,
+        kMove9dTd,
+        kMoveTdJd,
+        kMoveJdQd,
+        kMoveQdKd,
 
+        // Tableau Moves ===============================================================================================
+        // To Spades ---------------------------------------------------------------------------------------------------
+        kMove2sAh,
+        kMove3s2h,
+        kMove4s3h,
+        kMove5s4h,
+        kMove6s5h,
+        kMove7s6h,
+        kMove8s7h,
+        kMove9s8h,
+        kMoveTs9h,
+        kMoveJsTh,
+        kMoveQsJh,
+        kMoveKsQh,
+        kMove2sAd,
+        kMove3s2d,
+        kMove4s3d,
+        kMove5s4d,
+        kMove6s5d,
+        kMove7s6d,
+        kMove8s7d,
+        kMove9s8d,
+        kMoveTs9d,
+        kMoveJsTd,
+        kMoveQsJd,
+        kMoveKsQd,
+
+        // To Hearts ---------------------------------------------------------------------------------------------------
+        kMove2hAs,
+        kMove3h2s,
+        kMove4h3s,
+        kMove5h4s,
+        kMove6h5s,
+        kMove7h6s,
+        kMove8h7s,
+        kMove9h8s,
+        kMoveTh9s,
+        kMoveJhTs,
+        kMoveQhJs,
+        kMoveKhQs,
+        kMove2hAc,
+        kMove3h2c,
+        kMove4h3c,
+        kMove5h4c,
+        kMove6h5c,
+        kMove7h6c,
+        kMove8h7c,
+        kMove9h8c,
+        kMoveTh9c,
+        kMoveJhTc,
+        kMoveQhJc,
+        kMoveKhQc,
+
+        // To Clubs ----------------------------------------------------------------------------------------------------
+        kMove2cAh,
+        kMove3c2h,
+        kMove4c3h,
+        kMove5c4h,
+        kMove6c5h,
+        kMove7c6h,
+        kMove8c7h,
+        kMove9c8h,
+        kMoveTc9h,
+        kMoveJcTh,
+        kMoveQcJh,
+        kMoveKcQh,
+        kMove2cAd,
+        kMove3c2d,
+        kMove4c3d,
+        kMove5c4d,
+        kMove6c5d,
+        kMove7c6d,
+        kMove8c7d,
+        kMove9c8d,
+        kMoveTc9d,
+        kMoveJcTd,
+        kMoveQcJd,
+        kMoveKcQd,
+
+        // To Diamonds -------------------------------------------------------------------------------------------------
+        kMove2dAs,
+        kMove3d2s,
+        kMove4d3s,
+        kMove5d4s,
+        kMove6d5s,
+        kMove7d6s,
+        kMove8d7s,
+        kMove9d8s,
+        kMoveTd9s,
+        kMoveJdTs,
+        kMoveQdJs,
+        kMoveKdQs,
+        kMove2dAc,
+        kMove3d2c,
+        kMove4d3c,
+        kMove5d4c,
+        kMove6d5c,
+        kMove7d6c,
+        kMove8d7c,
+        kMove9d8c,
+        kMoveTd9c,
+        kMoveJdTc,
+        kMoveQdJc,
+        kMoveKdQc,
     };
 
     enum Location {
@@ -138,7 +343,7 @@ namespace open_spiel::solitaire {
         std::deque<Card> cards;             // Holds the card current in the deck
         std::deque<Card> waste;             // Holds the waste cards, the top of which can be played
         std::deque<Card> initial_order;     // Holds the initial order of the deck, so that it can be rebuilt
-        int times_rebuilt;                  // Number of times Rebuild() is called, used for score or terminality
+        int times_rebuilt = 0;                  // Number of times Rebuild() is called, used for score or terminality
 
         // Constructors ================================================================================================
 
@@ -147,6 +352,7 @@ namespace open_spiel::solitaire {
         // Other Methods ===============================================================================================
 
         std::vector<Card> Sources() const;      // Returns vector containing the top card of the waste pile
+        std::vector<Card> Split(Card card);     // Returns split card from waste
         void draw(unsigned long num_cards);     // Moves cards to the waste
         void rebuild();                         // Repopulates the deck in the order cards were originally drawn
 
@@ -162,6 +368,7 @@ namespace open_spiel::solitaire {
 
         // Constructors ================================================================================================
 
+        Foundation();
         explicit Foundation(std::string suit);          // Construct an empty foundation of a given suit
 
         // Other Methods ===============================================================================================
@@ -183,6 +390,7 @@ namespace open_spiel::solitaire {
 
         // Constructors ================================================================================================
 
+        Tableau();
         explicit Tableau(int num_cards);            // Construct a tableau with the given cards
 
         // Other Methods ===============================================================================================
@@ -205,12 +413,374 @@ namespace open_spiel::solitaire {
         // Constructors ================================================================================================
 
         Move(Card target_card, Card source_card);
+        Move(Action action_id);
 
         // Other Methods ===============================================================================================
 
         std::string ToString() const;
+        Action      ActionId() const;
         bool        IsReversible() const;
 
+    };
+
+    const std::map<std::pair<int, int>, Action> MOVE_TO_ACTION = {
+            //region Mapping of std::pair<int, int> where ints are card indices to an action declared in ActionType
+
+            // Special Moves ===========================================================================================
+            // To Empty Tableau ----------------------------------------------------------------------------------------
+            {{(int) Card("", ""), (int) Card("K", "s")}, kMove__Ks},
+            {{(int) Card("", ""), (int) Card("K", "h")}, kMove__Kh},
+            {{(int) Card("", ""), (int) Card("K", "c")}, kMove__Kc},
+            {{(int) Card("", ""), (int) Card("K", "d")}, kMove__Kd},
+
+            // To Empty Foundation -------------------------------------------------------------------------------------
+            {{(int) Card("", "h"), (int) Card("A", "h")}, kMove__Ah},
+            {{(int) Card("", "s"), (int) Card("A", "s")}, kMove__As},
+            {{(int) Card("", "c"), (int) Card("A", "c")}, kMove__Ac},
+            {{(int) Card("", "d"), (int) Card("A", "d")}, kMove__Ad},
+
+            // Foundation Moves ========================================================================================
+            // To Spades -----------------------------------------------------------------------------------------------
+            {{(int) Card("A", "s"), (int) Card("2", "s")}, kMoveAs2s},
+            {{(int) Card("2", "s"), (int) Card("3", "s")}, kMove2s3s},
+            {{(int) Card("3", "s"), (int) Card("4", "s")}, kMove3s4s},
+            {{(int) Card("4", "s"), (int) Card("5", "s")}, kMove4s5s},
+            {{(int) Card("5", "s"), (int) Card("6", "s")}, kMove5s6s},
+            {{(int) Card("6", "s"), (int) Card("7", "s")}, kMove6s7s},
+            {{(int) Card("7", "s"), (int) Card("8", "s")}, kMove7s8s},
+            {{(int) Card("8", "s"), (int) Card("9", "s")}, kMove8s9s},
+            {{(int) Card("9", "s"), (int) Card("T", "s")}, kMove9sTs},
+            {{(int) Card("T", "s"), (int) Card("J", "s")}, kMoveTsJs},
+            {{(int) Card("J", "s"), (int) Card("Q", "s")}, kMoveJsQs},
+            {{(int) Card("Q", "s"), (int) Card("K", "s")}, kMoveQsKs},
+
+            // To Hearts -----------------------------------------------------------------------------------------------
+            {{(int) Card("A", "h"), (int) Card("2", "h")}, kMoveAh2h},
+            {{(int) Card("2", "h"), (int) Card("3", "h")}, kMove2h3h},
+            {{(int) Card("3", "h"), (int) Card("4", "h")}, kMove3h4h},
+            {{(int) Card("4", "h"), (int) Card("5", "h")}, kMove4h5h},
+            {{(int) Card("5", "h"), (int) Card("6", "h")}, kMove5h6h},
+            {{(int) Card("6", "h"), (int) Card("7", "h")}, kMove6h7h},
+            {{(int) Card("7", "h"), (int) Card("8", "h")}, kMove7h8h},
+            {{(int) Card("8", "h"), (int) Card("9", "h")}, kMove8h9h},
+            {{(int) Card("9", "h"), (int) Card("T", "h")}, kMove9hTh},
+            {{(int) Card("T", "h"), (int) Card("J", "h")}, kMoveThJh},
+            {{(int) Card("J", "h"), (int) Card("Q", "h")}, kMoveJhQh},
+            {{(int) Card("Q", "h"), (int) Card("K", "h")}, kMoveQhKh},
+
+            // To Clubs ------------------------------------------------------------------------------------------------
+            {{(int) Card("A", "c"), (int) Card("2", "c")}, kMoveAc2c},
+            {{(int) Card("2", "c"), (int) Card("3", "c")}, kMove2c3c},
+            {{(int) Card("3", "c"), (int) Card("4", "c")}, kMove3c4c},
+            {{(int) Card("4", "c"), (int) Card("5", "c")}, kMove4c5c},
+            {{(int) Card("5", "c"), (int) Card("6", "c")}, kMove5c6c},
+            {{(int) Card("6", "c"), (int) Card("7", "c")}, kMove6c7c},
+            {{(int) Card("7", "c"), (int) Card("8", "c")}, kMove7c8c},
+            {{(int) Card("8", "c"), (int) Card("9", "c")}, kMove8c9c},
+            {{(int) Card("9", "c"), (int) Card("T", "c")}, kMove9cTc},
+            {{(int) Card("T", "c"), (int) Card("J", "c")}, kMoveTcJc},
+            {{(int) Card("J", "c"), (int) Card("Q", "c")}, kMoveJcQc},
+            {{(int) Card("Q", "c"), (int) Card("K", "c")}, kMoveQcKc},
+
+            // To Diamonds ---------------------------------------------------------------------------------------------
+            {{(int) Card("A", "d"), (int) Card("2", "d")}, kMoveAd2d},
+            {{(int) Card("2", "d"), (int) Card("3", "d")}, kMove2d3d},
+            {{(int) Card("3", "d"), (int) Card("4", "d")}, kMove3d4d},
+            {{(int) Card("4", "d"), (int) Card("5", "d")}, kMove4d5d},
+            {{(int) Card("5", "d"), (int) Card("6", "d")}, kMove5d6d},
+            {{(int) Card("6", "d"), (int) Card("7", "d")}, kMove6d7d},
+            {{(int) Card("7", "d"), (int) Card("8", "d")}, kMove7d8d},
+            {{(int) Card("8", "d"), (int) Card("9", "d")}, kMove8d9d},
+            {{(int) Card("9", "d"), (int) Card("T", "d")}, kMove9dTd},
+            {{(int) Card("T", "d"), (int) Card("J", "d")}, kMoveTdJd},
+            {{(int) Card("J", "d"), (int) Card("Q", "d")}, kMoveJdQd},
+            {{(int) Card("Q", "d"), (int) Card("K", "d")}, kMoveQdKd},
+
+            // Tableau Moves ===========================================================================================
+            // To Spades -----------------------------------------------------------------------------------------------
+            {{(int) Card("2", "s"), (int) Card("A", "h")}, kMove2sAh},
+            {{(int) Card("3", "s"), (int) Card("2", "h")}, kMove3s2h},
+            {{(int) Card("4", "s"), (int) Card("3", "h")}, kMove4s3h},
+            {{(int) Card("5", "s"), (int) Card("4", "h")}, kMove5s4h},
+            {{(int) Card("6", "s"), (int) Card("5", "h")}, kMove6s5h},
+            {{(int) Card("7", "s"), (int) Card("6", "h")}, kMove7s6h},
+            {{(int) Card("8", "s"), (int) Card("7", "h")}, kMove8s7h},
+            {{(int) Card("9", "s"), (int) Card("8", "h")}, kMove9s8h},
+            {{(int) Card("T", "s"), (int) Card("9", "h")}, kMoveTs9h},
+            {{(int) Card("J", "s"), (int) Card("T", "h")}, kMoveJsTh},
+            {{(int) Card("Q", "s"), (int) Card("J", "h")}, kMoveQsJh},
+            {{(int) Card("K", "s"), (int) Card("Q", "h")}, kMoveKsQh},
+            {{(int) Card("2", "s"), (int) Card("A", "d")}, kMove2sAd},
+            {{(int) Card("3", "s"), (int) Card("2", "d")}, kMove3s2d},
+            {{(int) Card("4", "s"), (int) Card("3", "d")}, kMove4s3d},
+            {{(int) Card("5", "s"), (int) Card("4", "d")}, kMove5s4d},
+            {{(int) Card("6", "s"), (int) Card("5", "d")}, kMove6s5d},
+            {{(int) Card("7", "s"), (int) Card("6", "d")}, kMove7s6d},
+            {{(int) Card("8", "s"), (int) Card("7", "d")}, kMove8s7d},
+            {{(int) Card("9", "s"), (int) Card("8", "d")}, kMove9s8d},
+            {{(int) Card("T", "s"), (int) Card("9", "d")}, kMoveTs9d},
+            {{(int) Card("J", "s"), (int) Card("T", "d")}, kMoveJsTd},
+            {{(int) Card("Q", "s"), (int) Card("J", "d")}, kMoveQsJd},
+            {{(int) Card("K", "s"), (int) Card("Q", "d")}, kMoveKsQd},
+
+            // To Hearts -----------------------------------------------------------------------------------------------
+            {{(int) Card("2", "h"), (int) Card("A", "s")}, kMove2hAs},
+            {{(int) Card("3", "h"), (int) Card("2", "s")}, kMove3h2s},
+            {{(int) Card("4", "h"), (int) Card("3", "s")}, kMove4h3s},
+            {{(int) Card("5", "h"), (int) Card("4", "s")}, kMove5h4s},
+            {{(int) Card("6", "h"), (int) Card("5", "s")}, kMove6h5s},
+            {{(int) Card("7", "h"), (int) Card("6", "s")}, kMove7h6s},
+            {{(int) Card("8", "h"), (int) Card("7", "s")}, kMove8h7s},
+            {{(int) Card("9", "h"), (int) Card("8", "s")}, kMove9h8s},
+            {{(int) Card("T", "h"), (int) Card("9", "s")}, kMoveTh9s},
+            {{(int) Card("J", "h"), (int) Card("T", "s")}, kMoveJhTs},
+            {{(int) Card("Q", "h"), (int) Card("J", "s")}, kMoveQhJs},
+            {{(int) Card("K", "h"), (int) Card("Q", "s")}, kMoveKhQs},
+            {{(int) Card("2", "h"), (int) Card("A", "c")}, kMove2hAc},
+            {{(int) Card("3", "h"), (int) Card("2", "c")}, kMove3h2c},
+            {{(int) Card("4", "h"), (int) Card("3", "c")}, kMove4h3c},
+            {{(int) Card("5", "h"), (int) Card("4", "c")}, kMove5h4c},
+            {{(int) Card("6", "h"), (int) Card("5", "c")}, kMove6h5c},
+            {{(int) Card("7", "h"), (int) Card("6", "c")}, kMove7h6c},
+            {{(int) Card("8", "h"), (int) Card("7", "c")}, kMove8h7c},
+            {{(int) Card("9", "h"), (int) Card("8", "c")}, kMove9h8c},
+            {{(int) Card("T", "h"), (int) Card("9", "c")}, kMoveTh9c},
+            {{(int) Card("J", "h"), (int) Card("T", "c")}, kMoveJhTc},
+            {{(int) Card("Q", "h"), (int) Card("J", "c")}, kMoveQhJc},
+            {{(int) Card("K", "h"), (int) Card("Q", "c")}, kMoveKhQc},
+
+            // To Clubs ------------------------------------------------------------------------------------------------
+            {{(int) Card("2", "c"), (int) Card("A", "h")}, kMove2cAh},
+            {{(int) Card("3", "c"), (int) Card("2", "h")}, kMove3c2h},
+            {{(int) Card("4", "c"), (int) Card("3", "h")}, kMove4c3h},
+            {{(int) Card("5", "c"), (int) Card("4", "h")}, kMove5c4h},
+            {{(int) Card("6", "c"), (int) Card("5", "h")}, kMove6c5h},
+            {{(int) Card("7", "c"), (int) Card("6", "h")}, kMove7c6h},
+            {{(int) Card("8", "c"), (int) Card("7", "h")}, kMove8c7h},
+            {{(int) Card("9", "c"), (int) Card("8", "h")}, kMove9c8h},
+            {{(int) Card("T", "c"), (int) Card("9", "h")}, kMoveTc9h},
+            {{(int) Card("J", "c"), (int) Card("T", "h")}, kMoveJcTh},
+            {{(int) Card("Q", "c"), (int) Card("J", "h")}, kMoveQcJh},
+            {{(int) Card("K", "c"), (int) Card("Q", "h")}, kMoveKcQh},
+            {{(int) Card("2", "c"), (int) Card("A", "d")}, kMove2cAd},
+            {{(int) Card("3", "c"), (int) Card("2", "d")}, kMove3c2d},
+            {{(int) Card("4", "c"), (int) Card("3", "d")}, kMove4c3d},
+            {{(int) Card("5", "c"), (int) Card("4", "d")}, kMove5c4d},
+            {{(int) Card("6", "c"), (int) Card("5", "d")}, kMove6c5d},
+            {{(int) Card("7", "c"), (int) Card("6", "d")}, kMove7c6d},
+            {{(int) Card("8", "c"), (int) Card("7", "d")}, kMove8c7d},
+            {{(int) Card("9", "c"), (int) Card("8", "d")}, kMove9c8d},
+            {{(int) Card("T", "c"), (int) Card("9", "d")}, kMoveTc9d},
+            {{(int) Card("J", "c"), (int) Card("T", "d")}, kMoveJcTd},
+            {{(int) Card("Q", "c"), (int) Card("J", "d")}, kMoveQcJd},
+            {{(int) Card("K", "c"), (int) Card("Q", "d")}, kMoveKcQd},
+
+            // To Diamonds ---------------------------------------------------------------------------------------------
+            {{(int) Card("2", "d"), (int) Card("A", "s")}, kMove2dAs},
+            {{(int) Card("3", "d"), (int) Card("2", "s")}, kMove3d2s},
+            {{(int) Card("4", "d"), (int) Card("3", "s")}, kMove4d3s},
+            {{(int) Card("5", "d"), (int) Card("4", "s")}, kMove5d4s},
+            {{(int) Card("6", "d"), (int) Card("5", "s")}, kMove6d5s},
+            {{(int) Card("7", "d"), (int) Card("6", "s")}, kMove7d6s},
+            {{(int) Card("8", "d"), (int) Card("7", "s")}, kMove8d7s},
+            {{(int) Card("9", "d"), (int) Card("8", "s")}, kMove9d8s},
+            {{(int) Card("T", "d"), (int) Card("9", "s")}, kMoveTd9s},
+            {{(int) Card("J", "d"), (int) Card("T", "s")}, kMoveJdTs},
+            {{(int) Card("Q", "d"), (int) Card("J", "s")}, kMoveQdJs},
+            {{(int) Card("K", "d"), (int) Card("Q", "s")}, kMoveKdQs},
+            {{(int) Card("2", "d"), (int) Card("A", "c")}, kMove2dAc},
+            {{(int) Card("3", "d"), (int) Card("2", "c")}, kMove3d2c},
+            {{(int) Card("4", "d"), (int) Card("3", "c")}, kMove4d3c},
+            {{(int) Card("5", "d"), (int) Card("4", "c")}, kMove5d4c},
+            {{(int) Card("6", "d"), (int) Card("5", "c")}, kMove6d5c},
+            {{(int) Card("7", "d"), (int) Card("6", "c")}, kMove7d6c},
+            {{(int) Card("8", "d"), (int) Card("7", "c")}, kMove8d7c},
+            {{(int) Card("9", "d"), (int) Card("8", "c")}, kMove9d8c},
+            {{(int) Card("T", "d"), (int) Card("9", "c")}, kMoveTd9c},
+            {{(int) Card("J", "d"), (int) Card("T", "c")}, kMoveJdTc},
+            {{(int) Card("Q", "d"), (int) Card("J", "c")}, kMoveQdJc},
+            {{(int) Card("K", "d"), (int) Card("Q", "c")}, kMoveKdQc},
+            //endregion
+    };
+
+    const std::map<Action, std::pair<int, int>> ACTION_TO_MOVE = {
+            //region Mapping of Action to a std::pair<int, int>, representing target & source card indices
+
+            // Special Moves ===============================================================================================
+            // To Empty Tableau --------------------------------------------------------------------------------------------
+            {kMove__Ks, {(int) Card("", ""), (int) Card("K", "s")}},
+            {kMove__Kh, {(int) Card("", ""), (int) Card("K", "h")}},
+            {kMove__Kc, {(int) Card("", ""), (int) Card("K", "c")}},
+            {kMove__Kd, {(int) Card("", ""), (int) Card("K", "d")}},
+
+            // To Empty Foundation -------------------------------------------------------------------------------------
+            {kMove__Ah, {(int) Card("", "h"), (int) Card("A", "h")}},
+            {kMove__As, {(int) Card("", "s"), (int) Card("A", "s")}},
+            {kMove__Ac, {(int) Card("", "c"), (int) Card("A", "c")}},
+            {kMove__Ad, {(int) Card("", "d"), (int) Card("A", "d")}},
+
+            // Foundation Moves ========================================================================================
+            // To Spades -----------------------------------------------------------------------------------------------
+            {kMoveAs2s, {(int) Card("A", "s"), (int) Card("2", "s")}},
+            {kMove2s3s, {(int) Card("2", "s"), (int) Card("3", "s")}},
+            {kMove3s4s, {(int) Card("3", "s"), (int) Card("4", "s")}},
+            {kMove4s5s, {(int) Card("4", "s"), (int) Card("5", "s")}},
+            {kMove5s6s, {(int) Card("5", "s"), (int) Card("6", "s")}},
+            {kMove6s7s, {(int) Card("6", "s"), (int) Card("7", "s")}},
+            {kMove7s8s, {(int) Card("7", "s"), (int) Card("8", "s")}},
+            {kMove8s9s, {(int) Card("8", "s"), (int) Card("9", "s")}},
+            {kMove9sTs, {(int) Card("9", "s"), (int) Card("T", "s")}},
+            {kMoveTsJs, {(int) Card("T", "s"), (int) Card("J", "s")}},
+            {kMoveJsQs, {(int) Card("J", "s"), (int) Card("Q", "s")}},
+            {kMoveQsKs, {(int) Card("Q", "s"), (int) Card("K", "s")}},
+
+            // To Hearts -----------------------------------------------------------------------------------------------
+            {kMoveAh2h, {(int) Card("A", "h"), (int) Card("2", "h")}},
+            {kMove2h3h, {(int) Card("2", "h"), (int) Card("3", "h")}},
+            {kMove3h4h, {(int) Card("3", "h"), (int) Card("4", "h")}},
+            {kMove4h5h, {(int) Card("4", "h"), (int) Card("5", "h")}},
+            {kMove5h6h, {(int) Card("5", "h"), (int) Card("6", "h")}},
+            {kMove6h7h, {(int) Card("6", "h"), (int) Card("7", "h")}},
+            {kMove7h8h, {(int) Card("7", "h"), (int) Card("8", "h")}},
+            {kMove8h9h, {(int) Card("8", "h"), (int) Card("9", "h")}},
+            {kMove9hTh, {(int) Card("9", "h"), (int) Card("T", "h")}},
+            {kMoveThJh, {(int) Card("T", "h"), (int) Card("J", "h")}},
+            {kMoveJhQh, {(int) Card("J", "h"), (int) Card("Q", "h")}},
+            {kMoveQhKh, {(int) Card("Q", "h"), (int) Card("K", "h")}},
+
+            // To Clubs ------------------------------------------------------------------------------------------------
+            {kMoveAc2c, {(int) Card("A", "c"), (int) Card("2", "c")}},
+            {kMove2c3c, {(int) Card("2", "c"), (int) Card("3", "c")}},
+            {kMove3c4c, {(int) Card("3", "c"), (int) Card("4", "c")}},
+            {kMove4c5c, {(int) Card("4", "c"), (int) Card("5", "c")}},
+            {kMove5c6c, {(int) Card("5", "c"), (int) Card("6", "c")}},
+            {kMove6c7c, {(int) Card("6", "c"), (int) Card("7", "c")}},
+            {kMove7c8c, {(int) Card("7", "c"), (int) Card("8", "c")}},
+            {kMove8c9c, {(int) Card("8", "c"), (int) Card("9", "c")}},
+            {kMove9cTc, {(int) Card("9", "c"), (int) Card("T", "c")}},
+            {kMoveTcJc, {(int) Card("T", "c"), (int) Card("J", "c")}},
+            {kMoveJcQc, {(int) Card("J", "c"), (int) Card("Q", "c")}},
+            {kMoveQcKc, {(int) Card("Q", "c"), (int) Card("K", "c")}},
+
+            // To Diamonds ---------------------------------------------------------------------------------------------
+            {kMoveAd2d, {(int) Card("A", "d"), (int) Card("2", "d")}},
+            {kMove2d3d, {(int) Card("2", "d"), (int) Card("3", "d")}},
+            {kMove3d4d, {(int) Card("3", "d"), (int) Card("4", "d")}},
+            {kMove4d5d, {(int) Card("4", "d"), (int) Card("5", "d")}},
+            {kMove5d6d, {(int) Card("5", "d"), (int) Card("6", "d")}},
+            {kMove6d7d, {(int) Card("6", "d"), (int) Card("7", "d")}},
+            {kMove7d8d, {(int) Card("7", "d"), (int) Card("8", "d")}},
+            {kMove8d9d, {(int) Card("8", "d"), (int) Card("9", "d")}},
+            {kMove9dTd, {(int) Card("9", "d"), (int) Card("T", "d")}},
+            {kMoveTdJd, {(int) Card("T", "d"), (int) Card("J", "d")}},
+            {kMoveJdQd, {(int) Card("J", "d"), (int) Card("Q", "d")}},
+            {kMoveQdKd, {(int) Card("Q", "d"), (int) Card("K", "d")}},
+
+            // Tableau Moves ===========================================================================================
+            // To Spades -----------------------------------------------------------------------------------------------
+            {kMove2sAh, {(int) Card("2", "s"), (int) Card("A", "h")}},
+            {kMove3s2h, {(int) Card("3", "s"), (int) Card("2", "h")}},
+            {kMove4s3h, {(int) Card("4", "s"), (int) Card("3", "h")}},
+            {kMove5s4h, {(int) Card("5", "s"), (int) Card("4", "h")}},
+            {kMove6s5h, {(int) Card("6", "s"), (int) Card("5", "h")}},
+            {kMove7s6h, {(int) Card("7", "s"), (int) Card("6", "h")}},
+            {kMove8s7h, {(int) Card("8", "s"), (int) Card("7", "h")}},
+            {kMove9s8h, {(int) Card("9", "s"), (int) Card("8", "h")}},
+            {kMoveTs9h, {(int) Card("T", "s"), (int) Card("9", "h")}},
+            {kMoveJsTh, {(int) Card("J", "s"), (int) Card("T", "h")}},
+            {kMoveQsJh, {(int) Card("Q", "s"), (int) Card("J", "h")}},
+            {kMoveKsQh, {(int) Card("K", "s"), (int) Card("Q", "h")}},
+            {kMove2sAd, {(int) Card("2", "s"), (int) Card("A", "d")}},
+            {kMove3s2d, {(int) Card("3", "s"), (int) Card("2", "d")}},
+            {kMove4s3d, {(int) Card("4", "s"), (int) Card("3", "d")}},
+            {kMove5s4d, {(int) Card("5", "s"), (int) Card("4", "d")}},
+            {kMove6s5d, {(int) Card("6", "s"), (int) Card("5", "d")}},
+            {kMove7s6d, {(int) Card("7", "s"), (int) Card("6", "d")}},
+            {kMove8s7d, {(int) Card("8", "s"), (int) Card("7", "d")}},
+            {kMove9s8d, {(int) Card("9", "s"), (int) Card("8", "d")}},
+            {kMoveTs9d, {(int) Card("T", "s"), (int) Card("9", "d")}},
+            {kMoveJsTd, {(int) Card("J", "s"), (int) Card("T", "d")}},
+            {kMoveQsJd, {(int) Card("Q", "s"), (int) Card("J", "d")}},
+            {kMoveKsQd, {(int) Card("K", "s"), (int) Card("Q", "d")}},
+
+            // To Hearts -----------------------------------------------------------------------------------------------
+            {kMove2hAs, {(int) Card("2", "h"), (int) Card("A", "s")}},
+            {kMove3h2s, {(int) Card("3", "h"), (int) Card("2", "s")}},
+            {kMove4h3s, {(int) Card("4", "h"), (int) Card("3", "s")}},
+            {kMove5h4s, {(int) Card("5", "h"), (int) Card("4", "s")}},
+            {kMove6h5s, {(int) Card("6", "h"), (int) Card("5", "s")}},
+            {kMove7h6s, {(int) Card("7", "h"), (int) Card("6", "s")}},
+            {kMove8h7s, {(int) Card("8", "h"), (int) Card("7", "s")}},
+            {kMove9h8s, {(int) Card("9", "h"), (int) Card("8", "s")}},
+            {kMoveTh9s, {(int) Card("T", "h"), (int) Card("9", "s")}},
+            {kMoveJhTs, {(int) Card("J", "h"), (int) Card("T", "s")}},
+            {kMoveQhJs, {(int) Card("Q", "h"), (int) Card("J", "s")}},
+            {kMoveKhQs, {(int) Card("K", "h"), (int) Card("Q", "s")}},
+            {kMove2hAc, {(int) Card("2", "h"), (int) Card("A", "c")}},
+            {kMove3h2c, {(int) Card("3", "h"), (int) Card("2", "c")}},
+            {kMove4h3c, {(int) Card("4", "h"), (int) Card("3", "c")}},
+            {kMove5h4c, {(int) Card("5", "h"), (int) Card("4", "c")}},
+            {kMove6h5c, {(int) Card("6", "h"), (int) Card("5", "c")}},
+            {kMove7h6c, {(int) Card("7", "h"), (int) Card("6", "c")}},
+            {kMove8h7c, {(int) Card("8", "h"), (int) Card("7", "c")}},
+            {kMove9h8c, {(int) Card("9", "h"), (int) Card("8", "c")}},
+            {kMoveTh9c, {(int) Card("T", "h"), (int) Card("9", "c")}},
+            {kMoveJhTc, {(int) Card("J", "h"), (int) Card("T", "c")}},
+            {kMoveQhJc, {(int) Card("Q", "h"), (int) Card("J", "c")}},
+            {kMoveKhQc, {(int) Card("K", "h"), (int) Card("Q", "c")}},
+
+            // To Clubs ------------------------------------------------------------------------------------------------
+            {kMove2cAh, {(int) Card("2", "c"), (int) Card("A", "h")}},
+            {kMove3c2h, {(int) Card("3", "c"), (int) Card("2", "h")}},
+            {kMove4c3h, {(int) Card("4", "c"), (int) Card("3", "h")}},
+            {kMove5c4h, {(int) Card("5", "c"), (int) Card("4", "h")}},
+            {kMove6c5h, {(int) Card("6", "c"), (int) Card("5", "h")}},
+            {kMove7c6h, {(int) Card("7", "c"), (int) Card("6", "h")}},
+            {kMove8c7h, {(int) Card("8", "c"), (int) Card("7", "h")}},
+            {kMove9c8h, {(int) Card("9", "c"), (int) Card("8", "h")}},
+            {kMoveTc9h, {(int) Card("T", "c"), (int) Card("9", "h")}},
+            {kMoveJcTh, {(int) Card("J", "c"), (int) Card("T", "h")}},
+            {kMoveQcJh, {(int) Card("Q", "c"), (int) Card("J", "h")}},
+            {kMoveKcQh, {(int) Card("K", "c"), (int) Card("Q", "h")}},
+            {kMove2cAd, {(int) Card("2", "c"), (int) Card("A", "d")}},
+            {kMove3c2d, {(int) Card("3", "c"), (int) Card("2", "d")}},
+            {kMove4c3d, {(int) Card("4", "c"), (int) Card("3", "d")}},
+            {kMove5c4d, {(int) Card("5", "c"), (int) Card("4", "d")}},
+            {kMove6c5d, {(int) Card("6", "c"), (int) Card("5", "d")}},
+            {kMove7c6d, {(int) Card("7", "c"), (int) Card("6", "d")}},
+            {kMove8c7d, {(int) Card("8", "c"), (int) Card("7", "d")}},
+            {kMove9c8d, {(int) Card("9", "c"), (int) Card("8", "d")}},
+            {kMoveTc9d, {(int) Card("T", "c"), (int) Card("9", "d")}},
+            {kMoveJcTd, {(int) Card("J", "c"), (int) Card("T", "d")}},
+            {kMoveQcJd, {(int) Card("Q", "c"), (int) Card("J", "d")}},
+            {kMoveKcQd, {(int) Card("K", "c"), (int) Card("Q", "d")}},
+
+            // To Diamonds ---------------------------------------------------------------------------------------------
+            {kMove2dAs, {(int) Card("2", "d"), (int) Card("A", "s")}},
+            {kMove3d2s, {(int) Card("3", "d"), (int) Card("2", "s")}},
+            {kMove4d3s, {(int) Card("4", "d"), (int) Card("3", "s")}},
+            {kMove5d4s, {(int) Card("5", "d"), (int) Card("4", "s")}},
+            {kMove6d5s, {(int) Card("6", "d"), (int) Card("5", "s")}},
+            {kMove7d6s, {(int) Card("7", "d"), (int) Card("6", "s")}},
+            {kMove8d7s, {(int) Card("8", "d"), (int) Card("7", "s")}},
+            {kMove9d8s, {(int) Card("9", "d"), (int) Card("8", "s")}},
+            {kMoveTd9s, {(int) Card("T", "d"), (int) Card("9", "s")}},
+            {kMoveJdTs, {(int) Card("J", "d"), (int) Card("T", "s")}},
+            {kMoveQdJs, {(int) Card("Q", "d"), (int) Card("J", "s")}},
+            {kMoveKdQs, {(int) Card("K", "d"), (int) Card("Q", "s")}},
+            {kMove2dAc, {(int) Card("2", "d"), (int) Card("A", "c")}},
+            {kMove3d2c, {(int) Card("3", "d"), (int) Card("2", "c")}},
+            {kMove4d3c, {(int) Card("4", "d"), (int) Card("3", "c")}},
+            {kMove5d4c, {(int) Card("5", "d"), (int) Card("4", "c")}},
+            {kMove6d5c, {(int) Card("6", "d"), (int) Card("5", "c")}},
+            {kMove7d6c, {(int) Card("7", "d"), (int) Card("6", "c")}},
+            {kMove8d7c, {(int) Card("8", "d"), (int) Card("7", "c")}},
+            {kMove9d8c, {(int) Card("9", "d"), (int) Card("8", "c")}},
+            {kMoveTd9c, {(int) Card("T", "d"), (int) Card("9", "c")}},
+            {kMoveJdTc, {(int) Card("J", "d"), (int) Card("T", "c")}},
+            {kMoveQdJc, {(int) Card("Q", "d"), (int) Card("J", "c")}},
+            {kMoveKdQc, {(int) Card("K", "d"), (int) Card("Q", "c")}},
+            //endregion
     };
 
     // OpenSpiel Classes ===============================================================================================
@@ -254,17 +824,16 @@ namespace open_spiel::solitaire {
         std::vector<Card>      Targets(std::optional<std::string> location = {}) const;
         std::vector<Card>      Sources(std::optional<std::string> location = {}) const;
         std::vector<Move>      CandidateMoves() const;
-        void                   MoveCards(Move & move);
 
-        /*
-        // std::string         GetContainerType(Card card) const;
-        // bool                IsReversible(Action action) const;
-        // const std::deque<Card> * GetContainer(Card card) const;
-        // double CurrentScore() const;
-        */
+        Tableau *              FindTableau(Card card) const;
+        Foundation *           FindFoundation(Card card) const;
+        Location               FindLocation(Card card) const;
+        void                   MoveCards(Move move);
+        bool                   OverHidden(Card card) const;
 
     private:
         bool is_setup;
+        double previous_score;
 
     };
 

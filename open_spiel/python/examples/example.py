@@ -100,12 +100,14 @@ def main(_):
             print(color(" Chance Node ", fg='red', style='negative'))
             print(str(num_actions) + " outcomes")
             action_list, prob_list = zip(*outcomes)
-            print('Action list:    ', action_list)
-            print('Prob list:      ', prob_list)
+            # print('Action list:    ', action_list)
+            # print('Prob list:      ', prob_list)
             action = np.random.choice(action_list, p=prob_list)
             print('Chosen Action:  ', action)
             print('Sampled outcome:', state.action_to_string(state.current_player(), action))
             print(); print(str(state))
+            # print("\nReturns :", state.returns())
+            # print("Reward  :", state.rewards())
             state.apply_action(action)
 
         elif state.is_simultaneous_node():
@@ -130,7 +132,7 @@ def main(_):
             #print_representations(state)
 
             legal_actions = state.legal_actions(state.current_player())
-            print('\nLegal Actions:', [state.action_to_string(action) for action in legal_actions])
+            print('\nLegal Actions :', [state.action_to_string(action) for action in legal_actions])
 
             action = random.choice(state.legal_actions(state.current_player()))
             action_string = state.action_to_string(state.current_player(), action)
@@ -138,9 +140,10 @@ def main(_):
             print("Chosen Action :", action_string)
             state.apply_action(action)
 
-            print("Reward:", state.rewards())
+            print("\nReturns :", state.returns())
+            print("Reward  :", state.rewards())
 
-            if input("\nPress enter to continue >>>") == "":
+            if input("\nPress enter to continue >>>\n") == "":
                 pass
             else:
                 print('Ending program')
