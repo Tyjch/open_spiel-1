@@ -829,10 +829,18 @@ namespace open_spiel::solitaire {
         Foundation *           FindFoundation(Card card) const;
         Location               FindLocation(Card card) const;
         void                   MoveCards(Move move);
+
+        bool                   IsReversible(Move move) const;
         bool                   OverHidden(Card card) const;
+        bool                   IsBottomCard(Card card) const;
+        bool                   IsTopCard(Card card) const;
 
     private:
         bool is_setup;
+        bool is_started;
+        bool is_finished = false;
+        bool is_reversible = false;
+        int  draw_counter = 0;
         double previous_score;
 
     };

@@ -38,9 +38,10 @@ flags.DEFINE_integer("players", None, "Number of players")
 flags.DEFINE_string("load_state", None, "A file containing a string to load a specific state")
 
 
-# Seeds: 7
-np.random.seed(8)
-
+# Seeds: 7, 8
+# SEED = 3
+np.random.seed(1)
+STEP_THROUGH = False
 
 def print_representations(state):
     #print('information_state_string: \n', state.information_state_string())
@@ -86,29 +87,31 @@ def main(_):
 
     # Print the initial state
 
-    print(str(state))
-    print('==' * 30)
-    print('state.is_terminal() =', state.is_terminal())
-
     while not state.is_terminal():
-        print(color('==' * 40, fg='white'))
+        # print(color('==' * 40, fg='white'))
 
         if state.is_chance_node():
             # Chance node: sample an outcome
             outcomes = state.chance_outcomes()
             num_actions = len(outcomes)
+            print(color('==' * 40, fg='white'))
             print(color(" Chance Node ", fg='red', style='negative'))
             print(str(num_actions) + " outcomes")
             action_list, prob_list = zip(*outcomes)
-            # print('Action list:    ', action_list)
-            # print('Prob list:      ', prob_list)
+            print('Action list:    ', action_list)
+            print('Prob list:      ', prob_list)
             action = np.random.choice(action_list, p=prob_list)
             print('Chosen Action:  ', action)
             print('Sampled outcome:', state.action_to_string(state.current_player(), action))
             print(); print(str(state))
-            # print("\nReturns :", state.returns())
-            # print("Reward  :", state.rewards())
+
+
             state.apply_action(action)
+
+            returns = str(state.returns()[0])
+            print(color("\nReturns : " + returns, fg='green'))
+
+
 
         elif state.is_simultaneous_node():
             # Simultaneous node: sample actions for all players.
@@ -123,7 +126,9 @@ def main(_):
             ])
             state.apply_actions(chosen_actions)
 
+
         else:
+            print(color('==' * 40, fg='white'))
             # Decision node: sample action for the single current player
             print(color(' Decision Node ', fg='blue', style='negative'))
             print(); print(str(state))
@@ -134,24 +139,27 @@ def main(_):
             legal_actions = state.legal_actions(state.current_player())
             print('\nLegal Actions :', [state.action_to_string(action) for action in legal_actions])
 
-            action = random.choice(state.legal_actions(state.current_player()))
+            action = np.random.choice(state.legal_actions(state.current_player()))
             action_string = state.action_to_string(state.current_player(), action)
 
             print("Chosen Action :", action_string)
             state.apply_action(action)
 
-            print("\nReturns :", state.returns())
-            print("Reward  :", state.rewards())
+            returns = str(state.returns()[0])
+            rewards = str(state.rewards()[0])
+            print(color("\nReturns : " + returns, fg='green'))
+            print(color("Reward  : " + rewards, fg='green'))
 
-            if input("\nPress enter to continue >>>\n") == "":
-                pass
-            else:
-                print('Ending program')
-                break
+            if STEP_THROUGH:
+                if input("\nPress enter to continue >>>\n") == "":
+                    pass
+                else:
+                    print('Ending program')
+                    break
+
 
         #print()
         #print(str(state))
-
 
 
     # Game is now done. Print utilities for each player

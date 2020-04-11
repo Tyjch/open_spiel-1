@@ -22,11 +22,15 @@ from absl import app
 from absl import flags
 from absl import logging
 
+import sys
+sys.path.append("/Users/tylerchurchill/CLionProjects/open_spiel")
+sys.path.append("/Users/tylerchurchill/CLionProjects/open_spiel/build/python")
+
 import pyspiel
 from open_spiel.python.visualizations import treeviz
 
 FLAGS = flags.FLAGS
-flags.DEFINE_string("game", "kuhn_poker", "Name of the game")
+flags.DEFINE_string("game", "solitaire", "Name of the game")
 flags.DEFINE_string("out", "/tmp/gametree.png", "Name of output file, e.g., "
                     "[*.png|*.pdf].")
 flags.DEFINE_enum("prog", "dot", ["dot", "neato", "circo"], "Graphviz layout.")
