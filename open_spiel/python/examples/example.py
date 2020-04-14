@@ -38,9 +38,9 @@ flags.DEFINE_integer("players", None, "Number of players")
 flags.DEFINE_string("load_state", None, "A file containing a string to load a specific state")
 
 
-# Seeds: 7, 8
-# SEED = 3
-np.random.seed(1)
+# Seeds: 4
+SEED = 39
+np.random.seed(SEED)
 STEP_THROUGH = False
 
 def print_representations(state):
@@ -168,6 +168,10 @@ def main(_):
     returns = state.returns()
     for pid in range(game.num_players()):
         print("Utility for player {} is {}".format(pid, returns[pid]))
+
+
+
+
 
 
 if __name__ == "__main__":

@@ -14,12 +14,8 @@ namespace open_spiel::solitaire {
 
     inline constexpr int kDefaultPlayers = 1;
 
-    /*
-    To get suit values from suit, just do GetIndex(SUITS, "s");
-    To get rank values from rank, just do GetIndex(RANKS, "A");
-    To get suit from suit value, just do SUITS[suit_value];
-    To get rank from rank value, just do RANKS[rank_value];
-    */
+    inline constexpr double HIDDEN_CARD = 98.0;
+    inline constexpr double NO_CARD     = 99.0;
 
     template <typename Container, typename Element>
     int GetIndex (Container container, Element element) {
@@ -50,10 +46,10 @@ namespace open_spiel::solitaire {
 
     enum ActionType {
 
-        // Setup Action ================================================================================================
+        // Setup Action (1) ================================================================================================
         kSetup = 0,
         
-        // Reveal Actions ==============================================================================================
+        // Reveal Actions (52) ==============================================================================================
         // Spades ------------------------------------------------------------------------------------------------------
         kRevealAs = 1,          
         kReveal2s = 2,
@@ -114,10 +110,10 @@ namespace open_spiel::solitaire {
         kRevealQd = 51,
         kRevealKd = 52,
         
-        // Draw Action =================================================================================================
+        // Draw Action (1) =================================================================================================
         kDraw = 53,
         
-        // Special Moves ===============================================================================================
+        // Special Moves (8) ===============================================================================================
         // To Empty Tableau --------------------------------------------------------------------------------------------
         kMove__Ks,
         kMove__Kh,
@@ -130,7 +126,7 @@ namespace open_spiel::solitaire {
         kMove__Ac,
         kMove__Ad,
 
-        // Foundation Moves ============================================================================================
+        // Foundation Moves (48) ============================================================================================
         // To Spades ---------------------------------------------------------------------------------------------------
         kMoveAs2s,
         kMove2s3s,
@@ -187,7 +183,7 @@ namespace open_spiel::solitaire {
         kMoveJdQd,
         kMoveQdKd,
 
-        // Tableau Moves ===============================================================================================
+        // Tableau Moves (96) ===============================================================================================
         // To Spades ---------------------------------------------------------------------------------------------------
         kMove2sAh,
         kMove3s2h,
@@ -830,17 +826,18 @@ namespace open_spiel::solitaire {
         Location               FindLocation(Card card) const;
         void                   MoveCards(Move move);
 
+        bool                   IsOverHidden(Card card) const;
         bool                   IsReversible(Move move) const;
-        bool                   OverHidden(Card card) const;
         bool                   IsBottomCard(Card card) const;
         bool                   IsTopCard(Card card) const;
+        bool                   IsSolvable() const;
 
     private:
-        bool is_setup;
-        bool is_started;
-        bool is_finished = false;
-        bool is_reversible = false;
-        int  draw_counter = 0;
+        bool   is_setup;
+        bool   is_started;
+        bool   is_finished = false;
+        bool   is_reversible = false;
+        int    draw_counter = 0;
         double previous_score;
 
     };
@@ -868,6 +865,7 @@ namespace open_spiel::solitaire {
 
     private:
         int num_players_;
+
     };
 
 } // namespace open_spiel::solitaire
