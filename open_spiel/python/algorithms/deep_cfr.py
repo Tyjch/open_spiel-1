@@ -38,7 +38,7 @@ from colors import color
 
 tf.logging.set_verbosity(tf.logging.ERROR)
 #np.random.seed(0)
-FLAG = False;
+FLAG = True
 
 def checkpoint():
     if FLAG and input("\nPress enter to continue >>> ") == "":

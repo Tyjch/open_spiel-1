@@ -13,8 +13,7 @@
 
 namespace open_spiel::solitaire {
 
-    inline constexpr int kDefaultPlayers = 1;
-
+    inline constexpr int    kDefaultPlayers = 1;
     inline constexpr double HIDDEN_CARD = 98.0;
     inline constexpr double NO_CARD     = 99.0;
 
@@ -374,7 +373,7 @@ namespace open_spiel::solitaire {
         std::vector<Card> Targets() const;              // A card in the foundation that can have cards moved to it
 
         std::vector<Card> Split(Card card);             // Splits on given card and returns it and all cards beneath it
-        void Extend(std::vector<Card> source_cards);    // Adds cards to the foundation
+        void Extend(const std::vector<Card>& source_cards);    // Adds cards to the foundation
 
     };
 
@@ -396,7 +395,7 @@ namespace open_spiel::solitaire {
         std::vector<Card> Targets() const;                // A card in the foundation that can have cards moved to it
 
         std::vector<Card> Split(Card card);       // Splits on given card and returns it and all cards beneath it
-        void Extend(std::vector<Card> source_cards);       // Adds cards to the foundation
+        void Extend(const std::vector<Card>& source_cards);       // Adds cards to the foundation
     };
 
     class Move {
@@ -410,7 +409,7 @@ namespace open_spiel::solitaire {
         // Constructors ================================================================================================
 
         Move(Card target_card, Card source_card);
-        Move(Action action_id);
+        explicit Move(Action action_id);
 
         // Other Methods ===============================================================================================
 
@@ -818,24 +817,22 @@ namespace open_spiel::solitaire {
 
         // Other Methods ===============================================================================================
 
-        std::vector<Card>      Targets(std::optional<std::string> location = {}) const;
-        std::vector<Card>      Sources(std::optional<std::string> location = {}) const;
+        std::vector<Card>      Targets(const std::optional<std::string> & location = {}) const;
+        std::vector<Card>      Sources(const std::optional<std::string> & location = {}) const;
         std::vector<Move>      CandidateMoves() const;
-
-        Tableau *              FindTableau(Card card) const;
-        Foundation *           FindFoundation(Card card) const;
-        Location               FindLocation(Card card) const;
-        void                   MoveCards(Move move);
-
-        bool                   IsOverHidden(Card card) const;
-        bool                   IsReversible(Move move) const;
+        Tableau *              FindTableau(const Card & card) const;
+        Foundation *           FindFoundation(const Card & card) const;
+        Location               FindLocation(const Card & card) const;
+        void                   MoveCards(const Move & move);
+        bool                   IsOverHidden(const Card & card) const;
+        bool                   IsReversible(const Move & move) const;
         bool                   IsBottomCard(Card card) const;
-        bool                   IsTopCard(Card card) const;
+        bool                   IsTopCard(const Card & card) const;
         bool                   IsSolvable() const;
 
     private:
         bool   is_setup;
-        bool   is_started;
+        bool   is_started = false;
         bool   is_finished = false;
         bool   is_reversible = false;
         int    draw_counter = 0;

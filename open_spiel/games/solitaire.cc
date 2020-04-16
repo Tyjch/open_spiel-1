@@ -1,14 +1,12 @@
 #include "solitaire.h"
 
 #include <deque>
-#include <numeric>
 #include <random>
 #include <algorithm>
 #include <optional>
-#include <variant>
+#include <utility>
 #include <math.h>
 
-#include "open_spiel/abseil-cpp/absl/strings/str_format.h"
 #include "open_spiel/abseil-cpp/absl/strings/str_join.h"
 #include "open_spiel/game_parameters.h"
 #include "open_spiel/spiel_utils.h"
@@ -24,18 +22,23 @@
 #define WHITE   "\033[37m"
 
 /* TODO LIST
- * - Change std::find to count to check if something exists in a container.
- * - Hidden cards shouldn't show up as sources or target.
- * - Can't move a source that isn't the top card of its pile to the foundation
- * - ToString() methods shouldn't include padding. Their callers should handle how the strings are formatted.
- * - Create methods that allow casting to std::string for card, deck, waste, foundation, and tableau.
- * - Mask actions that move a pile starting with a king to an empty tableau.
- * - Add support for serializing and deserializing state
- * - Wherever you iterate over cards in a pile, make sure it's not empty
- * - Maybe another way to check if a state is terminal is see if the last 8 actions are draws
- * - Issue with reversible moves, can't move a card to another pile to reveal a card to be moved to the foundations
- * - Maybe use std::variant or std::any to consolidate finding a container instead of FindTableau
- *   and FindFoundation.
+- Change std::find to count to check if something exists in a container.
+- Hidden cards shouldn't show up as sources or target.
+- Can't move a source that isn't the top card of its pile to the foundation
+- ToString() methods shouldn't include padding. Their callers should handle how the strings are formatted.
+- Create methods that allow casting to std::string for card, deck, waste, foundation, and tableau.
+- Mask actions that move a pile starting with a king to an empty tableau.
+- Add support for serializing and deserializing state
+- Wherever you iterate over cards in a pile, make sure it's not empty
+- Maybe another way to check if a state is terminal is see if the last 8 actions are draws
+- Issue with reversible moves, can't move a card to another pile to reveal a card to be moved to the foundations
+- Maybe use std::variant or std::any to consolidate finding a container instead of FindTableau
+  and FindFoundation.
+- After a chance move, you should be able to play a reversible move again, even if the players last move was reversible
+  (i.e. chance/kReveal moves are irreversible) 
+- After draw_counter reaches its limit, kDraw should be eliminated as a LegalAction. Then always allow reversible 
+  moves that target a foundation card.
+- Add exceptions
  */
 
 /* Deep CFR TODO
@@ -51,7 +54,7 @@ namespace open_spiel::solitaire {
                 "solitaire",
                 "Solitaire",
                 GameType::Dynamics::kSequential,
-                GameType::ChanceMode::kExplicitStochastic,   // TODO: Should this be explicit stochastic?
+                GameType::ChanceMode::kExplicitStochastic,
                 GameType::Information::kImperfectInformation,
                 GameType::Utility::kGeneralSum,
                 GameType::RewardModel::kRewards,
@@ -77,7 +80,7 @@ namespace open_spiel::solitaire {
 
     // Miscellaneous Functions =========================================================================================
 
-    void log(std::string text) {
+    void log(const std::string & text) {
         if (LOG_FLAG) {
             std::cout << CYAN << "LOG : " << text << RESET << std::endl;
         }
@@ -98,6 +101,7 @@ namespace open_spiel::solitaire {
 
     std::string LocationString(Location location) {
         log("Entering LocationString()");
+
         switch (location) {
             case kDeck : {
                 return "kDeck";
@@ -118,9 +122,9 @@ namespace open_spiel::solitaire {
                 return "n/a";
             }
         }
-    };
+    }
 
-    std::vector<double> ToCardIndices(std::deque<Card> pile, int length) {
+    std::vector<double> ToCardIndices(const std::deque<Card> & pile, int length) {
         log("Entering ToCardIndices()");
 
         std::vector<double> index_vector;
@@ -138,17 +142,13 @@ namespace open_spiel::solitaire {
 
     // Card Methods ====================================================================================================
 
-    /* Special cards:
-     - Card("", "", kTableau) is an empty tableau,
-     - Card("", "s", kFoundation) is an empty foundation */
-
     Card::Card() : rank(""), suit(""), hidden(true), location(kMissing) {
         log("Entering Card()");
-    };
+    }
 
-    Card::Card(std::string rank, std::string suit) : rank(rank), suit(suit), hidden(true), location(kMissing) {
+    Card::Card(std::string rank, std::string suit) : rank(std::move(rank)), suit(suit), hidden(true), location(kMissing) {
         log("Entering Card(std::string rank, std::string suit)");
-    };
+    }
 
     Card::Card(int index) : hidden(false), location(kMissing) {
         log("Entering Card(int index)");
@@ -162,6 +162,10 @@ namespace open_spiel::solitaire {
                 case -3 : { suit = "c"; break; }
                 case -4 : { suit = "d"; break; }
                 case -5 : { suit =  ""; break; }
+                default : {
+                    std::cout << YELLOW << "WARNING: Incorrect index for special card";
+                    break;
+                }
             }
         }
         // Handles ordinary cards
@@ -222,7 +226,7 @@ namespace open_spiel::solitaire {
             case kTableau:
 
                 // Handles empty tableau cards (children are kings of all suits)
-                if (rank == "") {
+                if (rank.empty()) {
                     child_rank  = "K";
                     child_suits = SUITS;
                 }
@@ -236,7 +240,7 @@ namespace open_spiel::solitaire {
             case kFoundation:
 
                 // Handles empty foundation cards (children are aces of same suit)
-                if (rank == "") {
+                if (rank.empty()) {
                     child_rank  = "A";
                     child_suits = {suit};
                 }
@@ -251,7 +255,7 @@ namespace open_spiel::solitaire {
                 return legal_children;
         }
 
-        for (auto child_suit : child_suits) {
+        for (const auto & child_suit : child_suits) {
             auto child   = Card(child_rank, child_suit);
             child.hidden = false;
             legal_children.push_back(child);
@@ -292,9 +296,9 @@ namespace open_spiel::solitaire {
             }
 
             // Special Cards
-            if (rank == "") {
+            if (rank.empty()) {
                 // Handles special tableau cards which have no rank or suit
-                if (suit == "") {
+                if (suit.empty()) {
                     absl::StrAppend(&result, "\U0001F0BF");
                 }
                 // Handles special foundation cards which have a suit but not a rank
@@ -409,11 +413,11 @@ namespace open_spiel::solitaire {
         cards = {};
     }
 
-    Foundation::Foundation(std::string suit) : suit(suit) {
+    Foundation::Foundation(std::string suit) : suit(std::move(suit)) {
         log("Entering Foundation(std::string suit)");
 
         cards = {};
-    };
+    }
 
     std::vector<Card> Foundation::Sources() const {
         log("Entering Foundation::Sources()");
@@ -455,7 +459,7 @@ namespace open_spiel::solitaire {
         }
     }
 
-    void Foundation::Extend(std::vector<Card> source_cards) {
+    void Foundation::Extend(const std::vector<Card> & source_cards) {
         log("Entering Foundation::Extend()");
 
         // TODO: Cards location should be changed to kFoundation when added
@@ -480,7 +484,7 @@ namespace open_spiel::solitaire {
         for (auto & card : cards) {
             card.location = kTableau;
         }
-    };
+    }
 
     std::vector<Card> Tableau::Sources() const {
         log("Entering Tableau::Sources()");
@@ -548,7 +552,7 @@ namespace open_spiel::solitaire {
         return split_cards;
     }
 
-    void Tableau::Extend(std::vector<Card> source_cards) {
+    void Tableau::Extend(const std::vector<Card> & source_cards) {
         log("Entering Tableau::Extend()");
 
         for (auto card : source_cards) {
@@ -562,8 +566,8 @@ namespace open_spiel::solitaire {
     Move::Move(Card target_card, Card source_card) {
         log("Entering Move(target_card, source_card)");
 
-        target = target_card;
-        source = source_card;
+        target = std::move(target_card);
+        source = std::move(source_card);
     }
 
     Move::Move(Action action_id) {
@@ -596,10 +600,10 @@ namespace open_spiel::solitaire {
         foundations(),
         tableaus() {
             log("Entering SolitaireState(game)");
-
+            is_started = false;
             is_setup = false;
             previous_score = 0.0;
-        };
+        }
 
     // Overriden Methods -----------------------------------------------------------------------------------------------
 
@@ -755,13 +759,14 @@ namespace open_spiel::solitaire {
 
     std::string             SolitaireState::ActionToString(Player player, Action action_id) const {
         // TODO: Probably use the enum names instead of the values the represent
+
         log("Entering ActionToString()");
 
         switch (action_id) {
-            case 0 : {
+            case kSetup : {
                 return "kSetup";
             }
-            case 1 ... 52 : {
+            case kRevealAs ... kRevealKd : {
                 // Reveal starts at 1 while card indices start at 0, so we subtract one here
                 Card revealed_card = Card(action_id - 1);
 
@@ -770,10 +775,10 @@ namespace open_spiel::solitaire {
 
                 return result;
             }
-            case 53 : {
+            case kDraw : {
                 return "kDraw";
             }
-            case 54 ... 205 : {
+            case kMove__Ks ... kMoveKdQc : {
                 Move move = Move(action_id);
                 std::string result;
 
@@ -854,12 +859,12 @@ namespace open_spiel::solitaire {
 
         log("Entering ObservationTensor()");
 
-        for (auto tableau : tableaus) {
+        for (const auto & tableau : tableaus) {
             std::vector<double> tableau_obs = ToCardIndices(tableau.cards, 19);
             values->insert(values->end(), tableau_obs.begin(), tableau_obs.end());
         }
 
-        for (auto foundation : foundations) {
+        for (const auto & foundation : foundations) {
             std::vector<double> foundation_obs = ToCardIndices(foundation.cards, 13);
             values->insert(values->end(), foundation_obs.begin(), foundation_obs.end());
         }
@@ -1030,14 +1035,14 @@ namespace open_spiel::solitaire {
 
         if (IsSolvable()) {
             // Clear Tableaus
-            for (auto &tableau : tableaus) {
+            for (auto & tableau : tableaus) {
                 tableau.cards.clear();
             }
 
             // Clear Foundations & Repopulate
-            for (auto &foundation : foundations) {
+            for (auto & foundation : foundations) {
                 foundation.cards.clear();
-                for (auto rank : RANKS) {
+                for (const auto & rank : RANKS) {
                     Card card = Card(rank, foundation.suit);
                     card.hidden = false;
                     card.location = kFoundation;
@@ -1101,7 +1106,8 @@ namespace open_spiel::solitaire {
 
             // Waste Score
             double waste_score = 0.0;
-            int waste_cards_remaning = deck.cards.size() + deck.waste.size();
+            int waste_cards_remaning;
+            waste_cards_remaning = deck.cards.size() + deck.waste.size();
             waste_score = (24 - waste_cards_remaning) * 20;
 
             // std::cout << " - Waste       = " << waste_score << std::endl;
@@ -1146,7 +1152,7 @@ namespace open_spiel::solitaire {
         else {
             std::vector<Action> legal_actions;
 
-            for (auto move : CandidateMoves()) {
+            for (const auto & move : CandidateMoves()) {
 
                 if (is_reversible) {
                     if (IsReversible(move)) {
@@ -1190,7 +1196,7 @@ namespace open_spiel::solitaire {
 
     // Other Methods ---------------------------------------------------------------------------------------------------
 
-    std::vector<Card>       SolitaireState::Targets(std::optional<std::string> location) const {
+    std::vector<Card>       SolitaireState::Targets(const std::optional<std::string> & location) const {
         log("Entering SolitaireState::Targets()");
 
         std::string loc = location.value_or("all");
@@ -1198,7 +1204,7 @@ namespace open_spiel::solitaire {
 
         // Gets targets from tableaus
         if (loc == "tableau" or loc == "all") {
-            for (Tableau tableau : tableaus) {
+            for (const Tableau & tableau : tableaus) {
                 std::vector<Card> current_targets = tableau.Targets();
                 targets.insert(targets.end(), current_targets.begin(), current_targets.end());
             }
@@ -1206,7 +1212,7 @@ namespace open_spiel::solitaire {
 
         // Gets targets from foundations
         if (loc == "foundation" or loc == "all") {
-            for (Foundation foundation : foundations) {
+            for (const Foundation & foundation : foundations) {
                 std::vector<Card> current_targets = foundation.Targets();
                 targets.insert(targets.end(), current_targets.begin(), current_targets.end());
             }
@@ -1217,7 +1223,7 @@ namespace open_spiel::solitaire {
 
     }
 
-    std::vector<Card>       SolitaireState::Sources(std::optional<std::string> location) const {
+    std::vector<Card>       SolitaireState::Sources(const std::optional<std::string> & location) const {
         log("Entering SolitaireState::Sources()");
 
         std::string loc = location.value_or("all");
@@ -1225,7 +1231,7 @@ namespace open_spiel::solitaire {
 
         // Gets sources from tableaus
         if (loc == "tableau" or loc == "all") {
-            for (Tableau tableau : tableaus) {
+            for (const Tableau & tableau : tableaus) {
                 std::vector<Card> current_sources = tableau.Sources();
                 sources.insert(sources.end(), current_sources.begin(), current_sources.end());
             }
@@ -1233,7 +1239,7 @@ namespace open_spiel::solitaire {
 
         // Gets sources from foundations
         if (loc == "foundation" or loc == "all") {
-            for (Foundation foundation : foundations) {
+            for (const Foundation & foundation : foundations) {
                 std::vector<Card> current_sources = foundation.Sources();
                 sources.insert(sources.end(), current_sources.begin(), current_sources.end());
             }
@@ -1256,7 +1262,7 @@ namespace open_spiel::solitaire {
         std::vector<Card> targets = Targets();
         std::vector<Card> sources = Sources();
 
-        for (auto target : targets) {
+        for (const auto & target : targets) {
             std::vector<Card> legal_children = target.LegalChildren();
 
             for (auto source : legal_children) {
@@ -1293,7 +1299,7 @@ namespace open_spiel::solitaire {
 
     }
 
-    Tableau *               SolitaireState::FindTableau(Card card) const {
+    Tableau *               SolitaireState::FindTableau(const Card & card) const {
         log("Entering FindTableau()");
 
         if (card.rank.empty() and card.suit.empty()) {
@@ -1316,10 +1322,10 @@ namespace open_spiel::solitaire {
 
     }
 
-    Foundation *            SolitaireState::FindFoundation(Card card) const {
+    Foundation *            SolitaireState::FindFoundation(const Card & card) const {
         log("Entering FindFoundation");
 
-        if (card.rank == "") {
+        if (card.rank.empty()) {
             for (auto & foundation : foundations) {
                 if (foundation.cards.empty() and foundation.suit == card.suit) {
                     return const_cast<Foundation *>(& foundation);
@@ -1338,7 +1344,7 @@ namespace open_spiel::solitaire {
 
     }
 
-    Location                SolitaireState::FindLocation(Card card) const {
+    Location                SolitaireState::FindLocation(const Card & card) const {
         log("Entering FindLocation()");
 
         // Handles special cards
@@ -1379,7 +1385,7 @@ namespace open_spiel::solitaire {
 
     }
 
-    void                    SolitaireState::MoveCards(Move move) {
+    void                    SolitaireState::MoveCards(const Move & move) {
         log("Entering MoveCards()");
 
         // Unpack target and source from move
@@ -1413,12 +1419,12 @@ namespace open_spiel::solitaire {
 
         switch (target.location) {
             case kTableau : {
-                Tableau * target_container = FindTableau(target);
+                auto target_container = FindTableau(target);
                 target_container->Extend(split_cards);
                 break;
             }
             case kFoundation : {
-                Foundation * target_container = FindFoundation(target);
+                auto target_container = FindFoundation(target);
                 target_container->Extend(split_cards);
                 break;
             }
@@ -1430,11 +1436,11 @@ namespace open_spiel::solitaire {
 
     }
 
-    bool                    SolitaireState::IsOverHidden(Card card) const {
+    bool                    SolitaireState::IsOverHidden(const Card & card) const {
         log("Entering IsOverHidden()");
 
         if (card.location == kTableau) {
-            Tableau *container = FindTableau(card);
+            auto container = FindTableau(card);
             auto p = std::find(container->cards.begin(), container->cards.end(), card);
             auto previous_card = std::prev(p);
             return previous_card->hidden;
@@ -1443,7 +1449,7 @@ namespace open_spiel::solitaire {
         return false;
     }
 
-    bool                    SolitaireState::IsReversible(Move move) const {
+    bool                    SolitaireState::IsReversible(const Move & move) const {
         log("Entering IsReversible()");
 
         Card target = move.target;
@@ -1457,23 +1463,25 @@ namespace open_spiel::solitaire {
             case kWaste : {
                 return false;
             }
-            // Cards can always be moved back from the foundation on the next state.
+            // Cards can always be moved back from the foundation on the next state
             case kFoundation : {
                 return true;
             }
             // Cards can be moved back if they don't reveal a hidden card upon being moved
             case kTableau : {
-                if (IsBottomCard(source)) {
-                    return false;
-                } else if (IsOverHidden(source)) {
+                if (IsBottomCard(source) or IsOverHidden(source)) {
                     return false;
                 } else {
                     return true;
                 }
             }
+            // Cards can't be moved at all if they are in kDeck or kMissing
             default : {
                 std::cout << YELLOW << "WARNING: 'source' is not in a tableau, foundation, or waste" << RESET << std::endl;
+                // I guess we return false here since it's not even a valid move?
+                return false;
             }
+
         }
     }
 
@@ -1482,43 +1490,37 @@ namespace open_spiel::solitaire {
 
         // Only implemented for cards in a tableau at the moment.
         if (card.location == kTableau) {
-            Tableau *container = FindTableau(card);
-            if (card == container->cards.front()) {
-                return true;
-            } else {
-                return false;
-            }
+            auto container = FindTableau(card);
+            // This line assumes three things:
+            //  - That `FindTableau()` actually found a tableau (TODO: add exception to it later)
+            //  - That the tableau found is not empty, otherwise we could not call `cards.front()`
+            //  - That `card` is an ordinary card (e.g. its suit and rank are defined)
+            return container->cards.front() == card;
+        } else {
+            // While it a card could be the bottom one in different locations, there isn't much use
+            return false;
         }
     }
 
-    bool                    SolitaireState::IsTopCard(Card card) const {
+    bool                    SolitaireState::IsTopCard(const Card & card) const {
+        // Assumes that card is found in a container, meaning container.back() will be defined
+        // This isn't true for special cards (e.g. Card("", "") or Card("", "s") etc.)
+
         log("Entering IsTopCard()");
 
         std::deque<Card> container;
         switch (card.location) {
             case kTableau : {
                 container = FindTableau(card)->cards;
-                if (card == container.back()) {
-                    return true;
-                } else {
-                    return false;
-                }
+                return card == container.back();
             }
             case kFoundation : {
                 container = FindFoundation(card)->cards;
-                if (card == container.back()) {
-                    return true;
-                } else {
-                    return false;
-                }
+                return card == container.back();
             }
             case kWaste : {
                 container = deck.waste;
-                if (card == container.front()) {
-                    return true;
-                } else {
-                    return false;
-                }
+                return card == container.front();
             }
             default : {
                 return false;
@@ -1529,10 +1531,10 @@ namespace open_spiel::solitaire {
     bool                    SolitaireState::IsSolvable() const {
         log("Entering IsSolvable()");
 
-        if (deck.cards.size() == 0 and deck.waste.size() == 0) {
-            for (auto tableau : tableaus) {
+        if (deck.cards.empty() and deck.waste.empty()) {
+            for (auto & tableau : tableaus) {
                 if (not tableau.cards.empty()) {
-                    for (auto card : tableau.cards) {
+                    for (auto & card : tableau.cards) {
                         // Returns false if at least one tableau card is hidden
                         if (card.hidden) {
                             return false;

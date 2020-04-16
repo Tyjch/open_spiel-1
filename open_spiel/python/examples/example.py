@@ -41,7 +41,8 @@ flags.DEFINE_string("load_state", None, "A file containing a string to load a sp
 # Seeds: 4
 SEED = 3
 np.random.seed(SEED)
-STEP_THROUGH = False
+STEP_THROUGH = True
+
 
 def print_representations(state):
     #print('information_state_string: \n', state.information_state_string())
