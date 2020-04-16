@@ -5,6 +5,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <deque>
 #include <variant>
 #include <any>
 #include <unordered_map>
@@ -415,7 +416,7 @@ namespace open_spiel::solitaire {
 
         std::string ToString() const;
         Action      ActionId() const;
-        bool        IsReversible() const;
+
 
     };
 

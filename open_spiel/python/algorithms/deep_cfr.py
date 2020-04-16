@@ -37,8 +37,8 @@ from open_spiel.python import policy
 from colors import color
 
 tf.logging.set_verbosity(tf.logging.ERROR)
-np.random.seed(0)
-FLAG = True;
+#np.random.seed(0)
+FLAG = False;
 
 def checkpoint():
     if FLAG and input("\nPress enter to continue >>> ") == "":
@@ -324,14 +324,12 @@ class DeepCFRSolver(policy.Policy):
 
         elif state.is_chance_node():
 
-            #checkpoint()
-            #print(color(("\n" + "==" * 50), fg='white'))
-            #print(); print(color(' Chance Node ', fg='green', style='negative'))
-            #print(str(state))
-
-            # TODO: Is it correct to assume chance outcomes are uniformly distributed?
-
-
+            '''
+            checkpoint()
+            print(color(("\n" + "==" * 50), fg='white'))
+            print(); print(color(' Chance Node ', fg='green', style='negative'))
+            print(str(state))
+            '''
 
             action = np.random.choice([i[0] for i in state.chance_outcomes()])
 
@@ -340,17 +338,17 @@ class DeepCFRSolver(policy.Policy):
 
         elif state.current_player() == player:
 
+            '''
             checkpoint()
             print(color(("\n" + "==" * 50), fg='white'))
             print(); print(color(' Player Node ', fg='blue', style='negative'))
             print(str(state)); print()
+            '''
 
             sampled_regret = collections.defaultdict(float)
             advantages, strategy = self._sample_action_from_advantage(state, player)
 
             for action in state.legal_actions():
-                print(action)
-                child = state.child(action)
                 expected_payoff[action] = self._traverse_game_tree(state.child(action), player)
 
             for action in state.legal_actions():

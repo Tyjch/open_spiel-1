@@ -152,7 +152,6 @@ namespace open_spiel::solitaire {
 
     Card::Card(int index) : hidden(false), location(kMissing) {
         log("Entering Card(int index)");
-        std::cout << "Card Index = " << index << std::endl;
 
         // Handles special cards
         if (index < 0) {
@@ -173,7 +172,6 @@ namespace open_spiel::solitaire {
             suit = SUITS.at(suit_value);
         }
 
-        log("Exiting Card(int index)");
 
     }
 
@@ -570,7 +568,6 @@ namespace open_spiel::solitaire {
 
     Move::Move(Action action_id) {
         log("Entering Move(action_id)");
-        std::cout << "action_id = " << action_id << std::endl;
 
         auto card_pair = ACTION_TO_MOVE.at(action_id);
         target = Card(card_pair.first);
@@ -1013,10 +1010,8 @@ namespace open_spiel::solitaire {
         else {
             log("DoApplyAction() - else");
             // Create a move from the action id provided by 'move'
-            std::cout << "move = " << move << std::endl;
 
             Move selected_move = Move(move);
-            std::cout << selected_move.ToString() << std::endl;
 
             // If the move we are about to execute is reversible, set to true, else set to false
             is_reversible = IsReversible(selected_move);
@@ -1054,7 +1049,7 @@ namespace open_spiel::solitaire {
             is_finished = true;
         }
 
-        log("Exiting DoApplyAction()");
+
 
     }
 
@@ -1563,7 +1558,7 @@ namespace open_spiel::solitaire {
         Game(kGameType, params),
         num_players_(ParameterValue<int>("players")) {
 
-    };
+    }
 
     int     SolitaireGame::NumDistinctActions() const {
         return 206;
