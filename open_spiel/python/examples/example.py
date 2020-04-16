@@ -39,7 +39,7 @@ flags.DEFINE_string("load_state", None, "A file containing a string to load a sp
 
 
 # Seeds: 4
-SEED = 39
+SEED = 3
 np.random.seed(SEED)
 STEP_THROUGH = False
 
@@ -168,11 +168,6 @@ def main(_):
     returns = state.returns()
     for pid in range(game.num_players()):
         print("Utility for player {} is {}".format(pid, returns[pid]))
-
-
-
-
-
 
 if __name__ == "__main__":
     app.run(main)

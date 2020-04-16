@@ -612,7 +612,7 @@ namespace open_spiel::solitaire {
             // To Empty Foundation -------------------------------------------------------------------------------------
             {kMove__Ah, {(int) Card("", "h"), (int) Card("A", "h")}},
             {kMove__As, {(int) Card("", "s"), (int) Card("A", "s")}},
-            {kMove__Ac, {(int) Card("", "c"), (int) Card("A", "c")}},
+            {kMove__Ac, {(int) Card("", "c"), (int) Card("A", "c")}}, // <-----
             {kMove__Ad, {(int) Card("", "d"), (int) Card("A", "d")}},
 
             // Foundation Moves ========================================================================================

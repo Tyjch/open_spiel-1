@@ -34,8 +34,8 @@ from open_spiel.python.algorithms import deep_cfr
 from open_spiel.python.algorithms import exploitability
 
 import pyspiel
-import faulthandler
-faulthandler.enable()
+#import faulthandler
+#faulthandler.enable()
 
 FLAGS = flags.FLAGS
 
@@ -58,7 +58,7 @@ def main(unused_argv):
         learning_rate=1e-3,
         batch_size_advantage=None,
         batch_size_strategy=None,
-        memory_capacity=3e7)
+        memory_capacity=1e7)
     sess.run(tf.global_variables_initializer())
     _, advantage_losses, policy_loss = deep_cfr_solver.solve()
     for player, losses in six.iteritems(advantage_losses):

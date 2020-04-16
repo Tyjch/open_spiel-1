@@ -36,10 +36,19 @@ import tensorflow.compat.v1 as tf
 from open_spiel.python import policy
 from colors import color
 
-# Segfault = 0, 2
-# Malloc = 1
-np.random.seed(3)
+tf.logging.set_verbosity(tf.logging.ERROR)
+np.random.seed(0)
+FLAG = True;
 
+def checkpoint():
+    if FLAG and input("\nPress enter to continue >>> ") == "":
+        pass
+
+def print_recent_history(state):
+    info_state = state.information_state_tensor(0)
+    info_state = info_state[0 : info_state.index(-1)]
+    print("\nHistory :", list(reversed(info_state)))
+    print("Depth   :", len(info_state))
 
 AdvantageMemory = collections.namedtuple("AdvantageMemory", "info_state iteration advantage action")
 
@@ -229,6 +238,7 @@ class DeepCFRSolver(policy.Policy):
             self._optimizer_advantages.append(tf.train.AdamOptimizer(learning_rate=learning_rate))
             self._learn_step_advantages.append(self._optimizer_advantages[p].minimize(self._loss_advantages[p]))
 
+
     @property
     def advantage_buffers(self):
         
@@ -239,30 +249,35 @@ class DeepCFRSolver(policy.Policy):
         
         return self._strategy_memories
 
+
     def clear_advantage_buffers(self):
         
         for p in range(self._num_players):
             self._advantage_memories[p].clear()
 
+
     def reinitialize_advantage_networks(self):
-        
 
         for p in range(self._num_players):
             for key in self._advantage_networks[p].initializers:
                 self._advantage_networks[p].initializers[key]()
 
+
     def solve(self):
-        
 
         advantage_losses = collections.defaultdict(list)
 
         for iteration in range(self._num_iterations):
-            print(f"\nIteration: {iteration}", "~~" * 50)
+            print(color("==" * 50, fg='blue'))
+            print(color(f"Iteration: {iteration}", fg='blue'))
+            print(color("==" * 50, fg='blue'))
 
             for p in range(self._num_players):
 
                 for traversal in range(self._num_traversals):
-                    print(f"\nTraversal: {traversal}", "~~" * 50)
+                    print(color("==" * 50, fg='green'))
+                    print(color(f"Traversal: {traversal}", fg='green'))
+                    print(color("==" * 50, fg='green'))
 
                     self._traverse_game_tree(self._root_node, p)
 
@@ -273,6 +288,7 @@ class DeepCFRSolver(policy.Policy):
 
         policy_loss = self._learn_strategy_network()
         return self._policy_network, advantage_losses, policy_loss
+
 
     def _traverse_game_tree(self, state, player):
 
@@ -289,41 +305,51 @@ class DeepCFRSolver(policy.Policy):
             Recursively returns expected payoffs for each action.
         """
 
-        print(color(("\n" + "==" * 50), fg='white'))
-
         expected_payoff = collections.defaultdict(float)
+
 
         if state.is_terminal():
 
-            if input("Press enter to continue >>> ") == "":
-                pass
+            checkpoint()
+
+            print(color(("\n" + "==" * 50), fg='white'))
             print(); print(color(' Terminal Node ', fg='red', style='negative'))
             print(str(state))
+            print_recent_history(state)
 
-            print("\nReturns:", state.returns()[player])
-
+            print("Returns :", state.returns()[player])
 
             return state.returns()[player]
 
+
         elif state.is_chance_node():
 
-            print(); print(color(' Chance Node ', fg='green', style='negative'))
-            # print(str(state))
+            #checkpoint()
+            #print(color(("\n" + "==" * 50), fg='white'))
+            #print(); print(color(' Chance Node ', fg='green', style='negative'))
+            #print(str(state))
 
             # TODO: Is it correct to assume chance outcomes are uniformly distributed?
+
+
+
             action = np.random.choice([i[0] for i in state.chance_outcomes()])
 
             return self._traverse_game_tree(state.child(action), player)
 
+
         elif state.current_player() == player:
 
+            checkpoint()
+            print(color(("\n" + "==" * 50), fg='white'))
             print(); print(color(' Player Node ', fg='blue', style='negative'))
-            # print(str(state)); print()
+            print(str(state)); print()
 
             sampled_regret = collections.defaultdict(float)
             advantages, strategy = self._sample_action_from_advantage(state, player)
 
             for action in state.legal_actions():
+                print(action)
                 child = state.child(action)
                 expected_payoff[action] = self._traverse_game_tree(state.child(action), player)
 
@@ -338,10 +364,8 @@ class DeepCFRSolver(policy.Policy):
 
             return max(expected_payoff.values())
 
-        else:
 
-            print(); print(color(' Other Player Node ', fg='cyan', style='negative'))
-            #print(str(state))
+        else:
 
             other_player = state.current_player()
             _, strategy  = self._sample_action_from_advantage(state, other_player)
@@ -356,8 +380,9 @@ class DeepCFRSolver(policy.Policy):
                 strategy)
             )
 
-            print('Sampled action:', sampled_action)
+            # print('Sampled action:', sampled_action)
             return self._traverse_game_tree(state.child(sampled_action), player)
+
 
     def _sample_action_from_advantage(self, state, player):
         
@@ -376,11 +401,6 @@ class DeepCFRSolver(policy.Policy):
         info_state    = state.information_state_tensor(player)
         legal_actions = state.legal_actions(player)
 
-        past_actions = info_state[0 : info_state.index(-1)]
-        print("depth:", len(past_actions))
-        print("items:", past_actions)
-
-
         advantages = self._session.run(
             self._advantage_outputs[player],
             feed_dict={self._info_state_ph : np.expand_dims(info_state, axis=0)}
@@ -397,6 +417,7 @@ class DeepCFRSolver(policy.Policy):
                 matched_regrets[action] = 1 / self._num_actions
 
         return advantages, matched_regrets
+
 
     def action_probabilities(self, state):
         
@@ -415,6 +436,7 @@ class DeepCFRSolver(policy.Policy):
         )
 
         return {action: probs[0][action] for action in legal_actions}
+
 
     def _learn_advantage_network(self, player):
         
@@ -458,6 +480,7 @@ class DeepCFRSolver(policy.Policy):
             })
 
         return loss_advantages
+
 
     def _learn_strategy_network(self):
         
