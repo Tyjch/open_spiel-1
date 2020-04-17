@@ -30,13 +30,13 @@ import pyspiel
 from open_spiel.python.visualizations import treeviz
 
 FLAGS = flags.FLAGS
-flags.DEFINE_string("game", "kuhn_poker", "Name of the game")
-flags.DEFINE_string("out", "/tmp/gametree.png", "Name of output file, e.g., "
+flags.DEFINE_string("game", "solitaire", "Name of the game")
+flags.DEFINE_string("out", "/Users/tylerchurchill/CLionProjects/open_spiel/open_spiel/gametree.png", "Name of output file, e.g., "
                     "[*.png|*.pdf].")
 flags.DEFINE_enum("prog", "dot", ["dot", "neato", "circo"], "Graphviz layout.")
-flags.DEFINE_boolean("group_infosets", False, "Wether to group infosets.")
-flags.DEFINE_boolean("group_terminal", False, "Wether to group terminal nodes.")
-flags.DEFINE_boolean("verbose", False, "Wether to print verbose output.")
+flags.DEFINE_boolean("group_infosets", False, "Whether to group infosets.")
+flags.DEFINE_boolean("group_terminal", False, "Whether to group terminal nodes.")
+flags.DEFINE_boolean("verbose", False, "Whether to print verbose output.")
 
 
 def _zero_sum_node_decorator(state):
@@ -48,37 +48,36 @@ def _zero_sum_node_decorator(state):
 
 
 def main(argv):
-  del argv
+    del argv
 
-  game = pyspiel.load_game(FLAGS.game)
-  game_type = game.get_type()
-
-  if game_type.dynamics == pyspiel.GameType.Dynamics.SIMULTANEOUS:
-    logging.warn("%s is not turn-based. Trying to reload game as turn-based.",
-                 FLAGS.game)
-    game = pyspiel.load_game_as_turn_based(FLAGS.game)
+    game = pyspiel.load_game(FLAGS.game)
     game_type = game.get_type()
 
-  if game_type.dynamics != pyspiel.GameType.Dynamics.SEQUENTIAL:
-    raise ValueError("Game must be sequential, not {}".format(
-        game_type.dynamics))
+    if game_type.dynamics == pyspiel.GameType.Dynamics.SIMULTANEOUS:
+        logging.warn("%s is not turn-based. Trying to reload game as turn-based.", FLAGS.game)
+        game = pyspiel.load_game_as_turn_based(FLAGS.game)
+        game_type = game.get_type()
 
-  if (game_type.utility == pyspiel.GameType.Utility.ZERO_SUM and
-      game.num_players() == 2):
-    logging.info("Game is zero-sum: only showing first-player's returns.")
-    gametree = treeviz.GameTree(
-        game,
-        node_decorator=_zero_sum_node_decorator,
-        group_infosets=FLAGS.group_infosets,
-        group_terminal=FLAGS.group_terminal)
-  else:
-    gametree = treeviz.GameTree(game)  # use default decorators
+    if game_type.dynamics != pyspiel.GameType.Dynamics.SEQUENTIAL:
+        raise ValueError("Game must be sequential, not {}".format(game_type.dynamics))
 
-  if FLAGS.verbose:
-    logging.info("Game tree:\n%s", gametree.to_string())
+    if game_type.utility == pyspiel.GameType.Utility.ZERO_SUM and game.num_players() == 2:
+        logging.info("Game is zero-sum: only showing first-player's returns.")
+        gametree = treeviz.GameTree(
+            game,
+            node_decorator=_zero_sum_node_decorator,
+            group_infosets=FLAGS.group_infosets,
+            group_terminal=FLAGS.group_terminal
+        )
 
-  gametree.draw(FLAGS.out, prog=FLAGS.prog)
-  logging.info("Game tree saved to file: %s", FLAGS.out)
+    else:
+        gametree = treeviz.GameTree(game)  # use default decorators
+
+    if FLAGS.verbose:
+        logging.info("Game tree:\n%s", gametree.to_string())
+
+    gametree.draw(FLAGS.out, prog=FLAGS.prog)
+    logging.info("Game tree saved to file: %s", FLAGS.out)
 
 
 if __name__ == "__main__":

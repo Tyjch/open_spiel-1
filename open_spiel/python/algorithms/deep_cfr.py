@@ -35,27 +35,28 @@ import tensorflow.compat.v1 as tf
 
 from open_spiel.python import policy
 from colors import color
+import sys
 
+# np.random.seed(0)
 tf.logging.set_verbosity(tf.logging.ERROR)
-#np.random.seed(0)
-FLAG = True
 
-def checkpoint():
-    if FLAG and input("\nPress enter to continue >>> ") == "":
+STEP_THROUGH  = False
+CHANCE_FLAG   = True
+DECISION_FLAG = True
+TERMINAL_FLAG = True
+
+counter = 0
+def checkpoint(flag=True):
+    if flag and STEP_THROUGH and input("\nPress enter to continue >>> ") == "":
         pass
 
-def print_recent_history(state):
-    info_state = state.information_state_tensor(0)
-    info_state = info_state[0 : info_state.index(-1)]
-    print("\nHistory :", list(reversed(info_state)))
-    print("Depth   :", len(info_state))
+
 
 AdvantageMemory = collections.namedtuple("AdvantageMemory", "info_state iteration advantage action")
 
 StrategyMemory = collections.namedtuple("StrategyMemory", "info_state iteration strategy_action_probs")
 
 
-# TODO(author3) Refactor into data structures lib.
 class FixedSizeRingBuffer(object):
     """ReplayBuffer of fixed size with a FIFO replacement policy.
 
@@ -77,7 +78,13 @@ class FixedSizeRingBuffer(object):
 
         Args:
         element: data to be added to the buffer.
-         """
+        """
+
+        # Capacity is in number of elements
+        # In the case of solitaire, each element is 80 bytes
+        # 1,000,000,000 bytes per gigabyte.
+        # If we want to use 2 GB, then it's 2e9 / 80 = 2.5e6
+
         if len(self._data) < self._replay_buffer_capacity:
             self._data.append(element)
         else:
@@ -116,6 +123,7 @@ class FixedSizeRingBuffer(object):
 
 
 class DeepCFRSolver(policy.Policy):
+
     """Implements a solver for the Deep CFR Algorithm.
 
   See https://arxiv.org/abs/1811.00164.
@@ -241,30 +249,25 @@ class DeepCFRSolver(policy.Policy):
 
     @property
     def advantage_buffers(self):
-        
         return self._advantage_memories
 
     @property
     def strategy_buffer(self):
-        
         return self._strategy_memories
 
 
     def clear_advantage_buffers(self):
-        
         for p in range(self._num_players):
             self._advantage_memories[p].clear()
 
 
     def reinitialize_advantage_networks(self):
-
         for p in range(self._num_players):
             for key in self._advantage_networks[p].initializers:
                 self._advantage_networks[p].initializers[key]()
 
 
     def solve(self):
-
         advantage_losses = collections.defaultdict(list)
 
         for iteration in range(self._num_iterations):
@@ -310,12 +313,7 @@ class DeepCFRSolver(policy.Policy):
 
         if state.is_terminal():
 
-            checkpoint()
-
-            print(color(("\n" + "==" * 50), fg='white'))
-            print(); print(color(' Terminal Node ', fg='red', style='negative'))
-            print(str(state))
-            print_recent_history(state)
+            checkpoint(flag=TERMINAL_FLAG)
 
             print("Returns :", state.returns()[player])
 
@@ -324,12 +322,7 @@ class DeepCFRSolver(policy.Policy):
 
         elif state.is_chance_node():
 
-            '''
-            checkpoint()
-            print(color(("\n" + "==" * 50), fg='white'))
-            print(); print(color(' Chance Node ', fg='green', style='negative'))
-            print(str(state))
-            '''
+            checkpoint(flag=CHANCE_FLAG)
 
             action = np.random.choice([i[0] for i in state.chance_outcomes()])
 
@@ -338,12 +331,7 @@ class DeepCFRSolver(policy.Policy):
 
         elif state.current_player() == player:
 
-            '''
-            checkpoint()
-            print(color(("\n" + "==" * 50), fg='white'))
-            print(); print(color(' Player Node ', fg='blue', style='negative'))
-            print(str(state)); print()
-            '''
+            checkpoint(flag=DECISION_FLAG)
 
             sampled_regret = collections.defaultdict(float)
             advantages, strategy = self._sample_action_from_advantage(state, player)
@@ -437,7 +425,6 @@ class DeepCFRSolver(policy.Policy):
 
 
     def _learn_advantage_network(self, player):
-        
 
         """Compute the loss on sampled transitions and perform a Q-network update.
 
@@ -481,7 +468,6 @@ class DeepCFRSolver(policy.Policy):
 
 
     def _learn_strategy_network(self):
-        
 
         """Compute the loss over the strategy network.
 

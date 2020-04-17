@@ -44,8 +44,9 @@ except (ImportError, Exception) as e:
       "pip install pygraphviz")
 # pylint: enable=g-import-not-at-top
 
+
 _PLAYER_SHAPES = {0: "square", 1: "ellipse"}
-_PLAYER_COLORS = {-1: "black", 0: "blue", 1: "red"}
+_PLAYER_COLORS = {-1: "red", 0: "blue", 1: "green"}
 _FONTSIZE = 8
 _WIDTH = _HEIGHT = 0.25
 _ARROWSIZE = .5
@@ -84,7 +85,6 @@ def default_node_decorator(state):
     attrs["shape"] = _PLAYER_SHAPES.get(player, "ellipse")
     attrs["color"] = _PLAYER_COLORS.get(player, "black")
   return attrs
-
 
 def default_edge_decorator(parent, unused_child, action):
   """Decorates a state-node of the game tree.
@@ -127,45 +127,48 @@ class GameTree(pygraphviz.AGraph):
     kwargs: Keyword arguments passed on to `pygraphviz.AGraph.__init__`.
   """
 
-  def __init__(self,
-               game=None,
-               depth_limit=-1,
-               node_decorator=default_node_decorator,
-               edge_decorator=default_edge_decorator,
-               group_terminal=False,
-               group_infosets=False,
-               infoset_attrs=None,
-               **kwargs):
+  def __init__(
+      self,
+      game=None,
+      depth_limit=-1,
+      node_decorator=default_node_decorator,
+      edge_decorator=default_edge_decorator,
+      group_terminal=False,
+      group_infosets=False,
+      infoset_attrs=None,
+      **kwargs
+  ):
 
-    kwargs["directed"] = kwargs.get("directed", True)
-    super(GameTree, self).__init__(**kwargs)
+      kwargs["directed"] = kwargs.get("directed", True)
+      super(GameTree, self).__init__(**kwargs)
 
-    # We use pygraphviz.AGraph.add_subgraph to cluster nodes, and it requires a
-    # default constructor. Thus game needs to be optional.
-    if game is None:
-      return
+      # We use pygraphviz.AGraph.add_subgraph to cluster nodes, and it requires a
+      # default constructor. Thus game needs to be optional.
+      if game is None:
+          return
 
-    self.game = game
-    self._node_decorator = node_decorator
-    self._edge_decorator = edge_decorator
+      self.game = game
+      self._node_decorator = node_decorator
+      self._edge_decorator = edge_decorator
 
-    self._infosets = collections.defaultdict(lambda: [])
-    self._terminal_nodes = []
+      self._infosets = collections.defaultdict(lambda: [])
+      self._terminal_nodes = []
 
-    root = game.new_initial_state()
-    self.add_node(self.state_to_str(root), **self._node_decorator(root))
-    self._build_tree(root, 0, depth_limit)
+      root = game.new_initial_state()
+      self.add_node(self.state_to_str(root), **self._node_decorator(root))
+      self._build_tree(root, 0, depth_limit)
 
-    if group_infosets:
-      for (player, info_state), sibblings in self._infosets.items():
-        cluster_name = "cluster_{}_{}".format(player, info_state)
-        self.add_subgraph(sibblings, cluster_name,
-                          **(infoset_attrs or {
-                              "style": "dashed"
-                          }))
+      if group_infosets:
+          for (player, info_state), sibblings in self._infosets.items():
+              cluster_name = "cluster_{}_{}".format(player, info_state)
+              self.add_subgraph(
+                  sibblings,
+                  cluster_name,
+                  **(infoset_attrs or {"style": "dashed"})
+              )
 
-    if group_terminal:
-      self.add_subgraph(self._terminal_nodes, rank="same")
+      if group_terminal:
+          self.add_subgraph(self._terminal_nodes, rank="same")
 
   def state_to_str(self, state):
     """Unique string representation of a state.
@@ -194,8 +197,7 @@ class GameTree(pygraphviz.AGraph):
       child = state.child(action)
       child_str = self.state_to_str(child)
       self.add_node(child_str, **self._node_decorator(child))
-      self.add_edge(state_str, child_str,
-                    **self._edge_decorator(state, child, action))
+      self.add_edge(state_str, child_str, **self._edge_decorator(state, child, action))
 
       if not child.is_chance_node() and not child.is_terminal():
         player = child.current_player()

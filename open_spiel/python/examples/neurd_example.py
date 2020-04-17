@@ -24,6 +24,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+
 from absl import app
 from absl import flags
 import tensorflow.compat.v1 as tf
@@ -36,7 +37,7 @@ tf.enable_eager_execution()
 FLAGS = flags.FLAGS
 
 flags.DEFINE_integer("iterations", 1000, "Number of iterations")
-flags.DEFINE_string("game", "kuhn_poker", "Name of the game")
+flags.DEFINE_string("game", "solitaire", "Name of the game")
 flags.DEFINE_integer("players", 2, "Number of players")
 flags.DEFINE_integer("print_freq", 100, "How often to print the exploitability")
 flags.DEFINE_integer("num_hidden_layers", 1,

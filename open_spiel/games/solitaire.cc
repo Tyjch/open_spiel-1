@@ -21,29 +21,27 @@
 #define CYAN    "\033[36m"
 #define WHITE   "\033[37m"
 
-/* TODO LIST
-- Change std::find to count to check if something exists in a container.
-- Hidden cards shouldn't show up as sources or target.
-- Can't move a source that isn't the top card of its pile to the foundation
-- ToString() methods shouldn't include padding. Their callers should handle how the strings are formatted.
-- Create methods that allow casting to std::string for card, deck, waste, foundation, and tableau.
-- Mask actions that move a pile starting with a king to an empty tableau.
-- Add support for serializing and deserializing state
-- Wherever you iterate over cards in a pile, make sure it's not empty
-- Maybe another way to check if a state is terminal is see if the last 8 actions are draws
-- Issue with reversible moves, can't move a card to another pile to reveal a card to be moved to the foundations
-- Maybe use std::variant or std::any to consolidate finding a container instead of FindTableau
-  and FindFoundation.
-- After a chance move, you should be able to play a reversible move again, even if the players last move was reversible
-  (i.e. chance/kReveal moves are irreversible) 
-- After draw_counter reaches its limit, kDraw should be eliminated as a LegalAction. Then always allow reversible 
-  moves that target a foundation card.
-- Add exceptions
- */
+/* QUESTIONS
+- Should I change std::find to std::count?
+    No, std::find stops and returns an iterator to the first occurence. std::count will iterate over the whole container.
+*/
 
-/* Deep CFR TODO
- * In traverse_game_tree, it fails to recognize a state is over when the draw count is 8 or over.
- *
+/* TODO LIST
+- [√] Hidden cards shouldn't show up as sources or target.
+- [~] Can't move a source that isn't the top card of its pile to the foundation
+- [ ] ToString() methods shouldn't include padding. Their callers should handle how the strings are formatted.
+- [ ] Create methods that allow casting to std::string for card, deck, waste, foundation, and tableau.
+- [ ] Mask actions that move a pile starting with a king to an empty tableau.
+- [√] Add support for serializing and deserializing state (update: I think the base implementations work fine)
+- [ ] Wherever you iterate over cards in a pile, make sure it's not empty
+- [√] Maybe another way to check if a state is terminal is see if the last 8 actions are draws
+- [ ] Issue with reversible moves, can't move a card to another pile to reveal a card to be moved to the foundations
+- [ ] After a chance move, you should be able to play a reversible move again, even if the players last move was reversible
+  (i.e. chance/kReveal moves are irreversible) 
+- [ ] After draw_counter reaches its limit, kDraw should be eliminated as a LegalAction. Then always allow reversible
+  moves that target a foundation card.
+- [ ] Add exceptions
+- [ ] Maybe some constructors should use optional instead of just overloading
  */
 
 
@@ -71,7 +69,7 @@ namespace open_spiel::solitaire {
             return std::shared_ptr<const Game>(new SolitaireGame(params));
         }
 
-        REGISTER_SPIEL_GAME(kGameType, Factory);
+        REGISTER_SPIEL_GAME(kGameType, Factory)
     }
 
     // Flags ===========================================================================================================
@@ -125,8 +123,9 @@ namespace open_spiel::solitaire {
     }
 
     std::vector<double> ToCardIndices(const std::deque<Card> & pile, int length) {
-        log("Entering ToCardIndices()");
+        // TODO: Handle empty piles
 
+        log("Entering ToCardIndices()");
         std::vector<double> index_vector;
         for (auto & card : pile) {
             if (card.hidden) {
@@ -142,12 +141,16 @@ namespace open_spiel::solitaire {
 
     // Card Methods ====================================================================================================
 
-    Card::Card() : rank(""), suit(""), hidden(true), location(kMissing) {
-        log("Entering Card()");
+    Card::Card(std::string rank, std::string suit) :
+        rank(std::move(rank)),
+        suit(std::move(suit)),
+        hidden(true),
+        location(kMissing) {
+        log("Entering Card(std::string rank, std::string suit)");
     }
 
-    Card::Card(std::string rank, std::string suit) : rank(std::move(rank)), suit(suit), hidden(true), location(kMissing) {
-        log("Entering Card(std::string rank, std::string suit)");
+    Card::Card() : rank(""), suit(""), hidden(true), location(kMissing) {
+        log("Entering Card()");
     }
 
     Card::Card(int index) : hidden(false), location(kMissing) {
@@ -255,6 +258,7 @@ namespace open_spiel::solitaire {
                 return legal_children;
         }
 
+        // TODO: Child suits could technically be empty if OppositeSuits() returns {}
         for (const auto & child_suit : child_suits) {
             auto child   = Card(child_rank, child_suit);
             child.hidden = false;
@@ -344,6 +348,8 @@ namespace open_spiel::solitaire {
     std::vector<Card> Deck::Sources() const {
         log("Entering Deck::Sources()");
 
+        // TODO: Can simplify this if statement
+
         // If the waste is not empty, sources is just a vector of the top card of the waste
         if (not waste.empty()) {
             if (waste.front().hidden) {
@@ -391,6 +397,7 @@ namespace open_spiel::solitaire {
     void Deck::rebuild() {
         log("Entering Deck::rebuild()");
 
+        // TODO: Make sure cards and initial_order are never both empty at the same time.
         if (cards.empty()) {
             for (Card & card : initial_order) {
                 if (std::find(waste.begin(), waste.end(), card) != waste.end()) {
@@ -462,7 +469,9 @@ namespace open_spiel::solitaire {
     void Foundation::Extend(const std::vector<Card> & source_cards) {
         log("Entering Foundation::Extend()");
 
-        // TODO: Cards location should be changed to kFoundation when added
+        // TODO: Can only extend with ordinary cards
+        // TODO: Probably no use for setting hidden to false.
+
         for (auto card : source_cards) {
             card.location = kFoundation;
             cards.push_back(card);
@@ -530,6 +539,8 @@ namespace open_spiel::solitaire {
 
     std::vector<Card> Tableau::Split(Card card) {
         log("Entering Tableau::Split()");
+
+        // TODO: How to handle a split when card isn't in this tableau?
 
         std::vector<Card> split_cards;
         if (not cards.empty()) {
@@ -859,6 +870,8 @@ namespace open_spiel::solitaire {
 
         log("Entering ObservationTensor()");
 
+        // TODO: Not sure if any pile being empty would have an effect on the final result
+
         for (const auto & tableau : tableaus) {
             std::vector<double> tableau_obs = ToCardIndices(tableau.cards, 19);
             values->insert(values->end(), tableau_obs.begin(), tableau_obs.end());
@@ -965,6 +978,8 @@ namespace open_spiel::solitaire {
             // Add move to revealed cards so we don't try to reveal it again
             revealed_cards.push_back(move);
 
+
+            // TODO: There shouldn't ever be a time before `is_started` where a tableau is empty
             // If the game hasn't been started ...
             if (not is_started) {
                 // For every tableau in tableaus ...
@@ -1060,7 +1075,6 @@ namespace open_spiel::solitaire {
 
     std::vector<double>     SolitaireState::Returns() const {
         // Equal to the sum of all rewards up to the current state
-        // TODO: Needs to handle moves that have a source on top of a hidden card that will be revealed next round
 
         log("Entering Returns()");
 
@@ -1076,18 +1090,11 @@ namespace open_spiel::solitaire {
                 }
             }
 
-            // std::cout << " - Foundations = " << foundation_score << std::endl;
-
             // Tableau Score
             double tableau_score = 0.0;
             int num_hidden_cards = 0;
             for (auto & tableau : tableaus) {
-
-                if (tableau.cards.empty()) {
-                    continue;
-                }
-
-                else {
+                if (not tableau.cards.empty()) {
                     for (auto & card : tableau.cards) {
                         // Cards that will be revealed by a chance node next turn are not counted
                         if (card.hidden) {
@@ -1098,11 +1105,8 @@ namespace open_spiel::solitaire {
                         num_hidden_cards += -1;
                     }
                 }
-
             }
             tableau_score = (21 - num_hidden_cards) * 20;
-
-            // std::cout << " - Tableaus    = " << tableau_score << std::endl;
 
             // Waste Score
             double waste_score = 0.0;
@@ -1110,12 +1114,8 @@ namespace open_spiel::solitaire {
             waste_cards_remaning = deck.cards.size() + deck.waste.size();
             waste_score = (24 - waste_cards_remaning) * 20;
 
-            // std::cout << " - Waste       = " << waste_score << std::endl;
-
+            // Total Score
             returns = foundation_score + tableau_score + waste_score;
-
-            // std::cout << " - Total       = " << returns << std::endl;
-
             return {returns};
         }
 
@@ -1150,6 +1150,8 @@ namespace open_spiel::solitaire {
         }
 
         else {
+            // TODO: What is CandidateMoves() is empty?
+
             std::vector<Action> legal_actions;
 
             for (const auto & move : CandidateMoves()) {
