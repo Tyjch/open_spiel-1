@@ -21,9 +21,40 @@
 #define CYAN    "\033[36m"
 #define WHITE   "\033[37m"
 
-/* QUESTIONS
-- Should I change std::find to std::count?
-    No, std::find stops and returns an iterator to the first occurence. std::count will iterate over the whole container.
+
+/* OPTIMIZATION NOTES
+
+ The biggest issues are FindLocation and LegalChildren. FindLocation is slow because
+ it iterates through all cards in the state and checks for equality. It'd probably be faster to maintain
+ a map of cards to their current location in the state. Then we would only have to search a portion of the state
+ to find the card. Or we could map the card directly to its pile and then use the pile type to get location.
+
+ LegalChildren could be faster by simply storing the rank and suit of child cards given the location. This
+ should be faster than having to look up the index of rank and suit.
+
+- LegalActions                   42%
+  - CandidateMoves               89%
+    - FindLocation               44%
+      - std::find                 73%
+    - LegalChildren              18%
+    - std::find                   12%
+    - SolitaireState::Sources    10%
+    - SolitaireState::Targets     8%
+
+Most of the time spent is in LegalActions, which is what is broken down above.
+
+- ApplyAction                    27%
+  - DoApplyAction               100%
+    - LegalActions               86%
+
+The problem with this is that it has to repeatedly type cast to int which recomputes the card index from its
+rank and suit. Once a card has been revealed though, its index never changes. Better to store it after its computed
+the first time.
+
+- ObservationTensor              24%
+  - ToCardIndices                86%
+    - Card::operator int         72%
+      - GetIndex                 35%
 */
 
 /* TODO LIST
@@ -34,6 +65,7 @@
 - [ ] Mask actions that move a pile starting with a king to an empty tableau.
 - [√] Add support for serializing and deserializing state (update: I think the base implementations work fine)
 - [ ] Wherever you iterate over cards in a pile, make sure it's not empty
+- [ ] Have an option to turn off colors in strings and std::cout
 - [√] Maybe another way to check if a state is terminal is see if the last 8 actions are draws
 - [ ] Issue with reversible moves, can't move a card to another pile to reveal a card to be moved to the foundations
 - [ ] After a chance move, you should be able to play a reversible move again, even if the players last move was reversible
@@ -183,6 +215,8 @@ namespace open_spiel::solitaire {
     }
 
     Card::operator int() const {
+        // OPTIMIZE
+
         log("Entering Card::operator int()");
 
         // Handles special cards
@@ -749,6 +783,7 @@ namespace open_spiel::solitaire {
             }
         }
 
+        /*
         absl::StrAppend(&result, "\n\nTARGETS : ");
         for (const Card & card : Targets()) {
             absl::StrAppend(&result, card.ToString());
@@ -764,6 +799,7 @@ namespace open_spiel::solitaire {
             absl::StrAppend(&result, "\n", move.ToString(), ": ", move.ActionId());
             absl::StrAppend(&result, ", ", IsReversible(move));
         }
+        */
 
         return result;
     }
@@ -1145,7 +1181,6 @@ namespace open_spiel::solitaire {
         log("Entering LegalActions()");
 
         if (IsTerminal()) {
-
             return {};
         }
 
@@ -1268,7 +1303,8 @@ namespace open_spiel::solitaire {
             std::vector<Card> legal_children = target.LegalChildren();
 
             for (auto source : legal_children) {
-                source.location = FindLocation(source);
+
+                source.location = FindLocation(source); // OPTIMIZE
 
                 if (std::find(sources.begin(), sources.end(), source) != sources.end()) {
 
@@ -1347,6 +1383,8 @@ namespace open_spiel::solitaire {
     }
 
     Location                SolitaireState::FindLocation(const Card & card) const {
+        // OPTIMIZE
+
         log("Entering FindLocation()");
 
         // Handles special cards
