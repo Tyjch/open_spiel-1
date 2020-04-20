@@ -111,7 +111,11 @@ void LegalActionsAreSorted(const Game& game, State& state) {
   if (state.IsChanceNode()) return;
   for (int player = 0; player < game.NumPlayers(); ++player) {
     auto actions = state.LegalActions(player);
+
     for (int i = 1; i < actions.size(); ++i) {
+      std::cout << "i = " << i << "; actions.size() = " << actions.size() << std::endl;
+      std::cout << "actions[i - 1] = " << actions[i - 1] << std::endl;
+      std::cout << "actions[i] = " << actions[i] << std::endl;
       SPIEL_CHECK_LT(actions[i - 1], actions[i]);
     }
   }

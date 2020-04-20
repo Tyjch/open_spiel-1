@@ -67,18 +67,18 @@ def default_node_decorator(state):
   """
   player = state.current_player()
   attrs = {
-      "label": "",
-      "fontsize": _FONTSIZE,
-      "width": _WIDTH,
-      "height": _HEIGHT,
-      "margin": _MARGIN
+      "label"    : "",
+      "fontsize" : _FONTSIZE,
+      "width"    : _WIDTH,
+      "height"   : _HEIGHT,
+      "margin"   : _MARGIN
   }
   if state.is_terminal():
     attrs["label"] = ", ".join(map(str, state.returns()))
     attrs["shape"] = "diamond"
   elif state.is_chance_node():
-    attrs["shape"] = "point"
-    attrs["width"] = _WIDTH / 2.
+    attrs["shape"]  = "point"
+    attrs["width"]  = _WIDTH / 2.
     attrs["height"] = _HEIGHT / 2.
   else:
     attrs["label"] = str(state.information_state_string())
@@ -100,114 +100,128 @@ def default_edge_decorator(parent, unused_child, action):
   Returns:
     `dict` with graphviz node style attributes.
   """
+
   player = parent.current_player()
   attrs = {
-      "label": parent.action_to_string(player, action),
-      "fontsize": _FONTSIZE,
-      "arrowsize": _ARROWSIZE
+      "label"     : parent.action_to_string(player, action),
+      "fontsize"  : _FONTSIZE,
+      "arrowsize" : _ARROWSIZE
   }
   attrs["color"] = _PLAYER_COLORS.get(player, "black")
   return attrs
 
 
 class GameTree(pygraphviz.AGraph):
-  """Builds `pygraphviz.AGraph` of the game tree.
-
-  Attributes:
-    game: A `pyspiel.Game` object.
-    depth_limit: Maximum depth of the tree. Optional, default=-1 (no limit).
-    node_decorator: Decorator function for nodes (states). Optional, default=
-      `treeviz.default_node_decorator`.
-    edge_decorator: Decorator function for edges (actions). Optional, default=
-      `treeviz.default_edge_decorator`.
-    group_terminal: Whether to display all terminal states at same level,
-      default=False.
-    group_infosets: Wheter to group infosets together, default=False.
-    infoset_attrs: Attributes to style infoset grouping.
-    kwargs: Keyword arguments passed on to `pygraphviz.AGraph.__init__`.
-  """
-
-  def __init__(
-      self,
-      game=None,
-      depth_limit=-1,
-      node_decorator=default_node_decorator,
-      edge_decorator=default_edge_decorator,
-      group_terminal=False,
-      group_infosets=False,
-      infoset_attrs=None,
-      **kwargs
-  ):
-
-      kwargs["directed"] = kwargs.get("directed", True)
-      super(GameTree, self).__init__(**kwargs)
-
-      # We use pygraphviz.AGraph.add_subgraph to cluster nodes, and it requires a
-      # default constructor. Thus game needs to be optional.
-      if game is None:
-          return
-
-      self.game = game
-      self._node_decorator = node_decorator
-      self._edge_decorator = edge_decorator
-
-      self._infosets = collections.defaultdict(lambda: [])
-      self._terminal_nodes = []
-
-      root = game.new_initial_state()
-      self.add_node(self.state_to_str(root), **self._node_decorator(root))
-      self._build_tree(root, 0, depth_limit)
-
-      if group_infosets:
-          for (player, info_state), sibblings in self._infosets.items():
-              cluster_name = "cluster_{}_{}".format(player, info_state)
-              self.add_subgraph(
-                  sibblings,
-                  cluster_name,
-                  **(infoset_attrs or {"style": "dashed"})
-              )
-
-      if group_terminal:
-          self.add_subgraph(self._terminal_nodes, rank="same")
-
-  def state_to_str(self, state):
-    """Unique string representation of a state.
-
-    Args:
-      state: The state.
-
-    Returns:
-      String representation of state.
+    """Builds `pygraphviz.AGraph` of the game tree.
+    
+    Attributes:
+        game: A `pyspiel.Game` object.
+        depth_limit: Maximum depth of the tree. Optional, default=-1 (no limit).
+        node_decorator: Decorator function for nodes (states). Optional, default=
+          `treeviz.default_node_decorator`.
+        edge_decorator: Decorator function for edges (actions). Optional, default=
+          `treeviz.default_edge_decorator`.
+        group_terminal: Whether to display all terminal states at same level,
+          default=False.
+        group_infosets: Wheter to group infosets together, default=False.
+        infoset_attrs: Attributes to style infoset grouping.
+        kwargs: Keyword arguments passed on to `pygraphviz.AGraph.__init__`.
     """
-    assert not state.is_simultaneous_node()
-    # AGraph nodes can't have empty string == None as a key, thus we prepend " "
-    return " " + state.history_str()
 
-  def _build_tree(self, state, depth, depth_limit):
-    """Recursively builds the game tree."""
-    state_str = self.state_to_str(state)
+    def __init__(
+        self,
+        game=None,
+        depth_limit=20,
+        node_decorator=default_node_decorator,
+        edge_decorator=default_edge_decorator,
+        group_terminal=False,
+        group_infosets=False,
+        infoset_attrs=None,
+        **kwargs
+    ):
 
-    if state.is_terminal():
-      self._terminal_nodes.append(state_str)
-      return
-    if depth > depth_limit >= 0:
-      return
+        kwargs["directed"] = kwargs.get("directed", True)
+        super(GameTree, self).__init__(**kwargs)
 
-    for action in state.legal_actions():
-      child = state.child(action)
-      child_str = self.state_to_str(child)
-      self.add_node(child_str, **self._node_decorator(child))
-      self.add_edge(state_str, child_str, **self._edge_decorator(state, child, action))
+        # We use pygraphviz.AGraph.add_subgraph to cluster nodes, and it requires a
+        # default constructor. Thus game needs to be optional.
+        if game is None:
+            return
 
-      if not child.is_chance_node() and not child.is_terminal():
-        player = child.current_player()
-        info_state = child.information_state_string()
-        self._infosets[(player, info_state)].append(child_str)
+        self.game = game
+        self._node_decorator = node_decorator
+        self._edge_decorator = edge_decorator
 
-      self._build_tree(child, depth + 1, depth_limit)
+        self._infosets = collections.defaultdict(lambda: [])
+        self._terminal_nodes = []
 
-  def _repr_svg_(self):
-    """Allows to render directly in Jupyter notebooks and Google Colab."""
-    if not self.has_layout:
-      self.layout(prog="dot")
-    return self.draw(format="svg").decode(self.encoding)
+        root = game.new_initial_state()
+        self.add_node(self.state_to_str(root), **self._node_decorator(root))
+        self._build_tree(root, 0, depth_limit)
+
+        if group_infosets:
+            for (player, info_state), sibblings in self._infosets.items():
+                cluster_name = "cluster_{}_{}".format(player, info_state)
+                self.add_subgraph(
+                    sibblings,
+                    cluster_name,
+                    **(infoset_attrs or {"style": "dashed"})
+                )
+
+        if group_terminal:
+            self.add_subgraph(self._terminal_nodes, rank="same")
+
+    def state_to_str(self, state):
+        """Unique string representation of a state.
+
+        Args:
+            state: The state.
+
+        Returns:
+            String representation of state.
+        """
+        assert not state.is_simultaneous_node()
+        # AGraph nodes can't have empty string == None as a key, thus we prepend " "
+        print('history_str', state.history_str())
+        return " " + state.history_str()
+
+    def _build_tree(self, state, depth, depth_limit):
+        """Recursively builds the game tree."""
+        state_str = self.state_to_str(state)
+        print(str(state))
+
+        if state.is_terminal():
+            self._terminal_nodes.append(state_str)
+            return
+        if depth > depth_limit >= 0:
+            return
+
+        if state.is_chance_node():
+            for action in state.chance_outcomes():
+                action = action[0]
+                print('outcome = ', action)
+                child = state.child(action)
+                child_str = self.state_to_str(child)
+                #self.add_node(child_str, **self._node_decorator(child))
+                #self.add_edge(state_str, child_str, **self._edge_decorator(state, child, action))
+
+        elif state.current_player() == 0:
+            for action in state.legal_actions():
+                print('action = ', action)
+                child = state.child(action)
+                child_str = self.state_to_str(child)
+                self.add_node(child_str, **self._node_decorator(child))
+                self.add_edge(state_str, child_str, **self._edge_decorator(state, child, action))
+
+                if not child.is_chance_node() and not child.is_terminal():
+                    player = child.current_player()
+                    info_state = child.information_state_string()
+                    self._infosets[(player, info_state)].append(child_str)
+
+        self._build_tree(child, depth + 1, depth_limit)
+
+    def _repr_svg_(self):
+        """Allows to render directly in Jupyter notebooks and Google Colab."""
+        if not self.has_layout:
+            self.layout(prog="dot")
+        return self.draw(format="svg").decode(self.encoding)

@@ -11,9 +11,39 @@
 #include <unordered_map>
 #include "open_spiel/spiel.h"
 
+#define RESET   "\033[0m"
+#define GREEN   "\033[32m"
+#define BLUE    "\033[34m"
+#define MAGENTA "\033[35m"
+#define CYAN    "\033[36m"
+
 namespace open_spiel::solitaire {
 
+    // Function Call Tracer for Debugging in Python
+
+    bool TRACER_FLAG = false;
+    struct tracer {
+
+        std::string name_;
+
+        tracer(std::string const& name) : name_(name) {
+            if (TRACER_FLAG) {
+                std::clog << BLUE << "LOG: Entering " << name_ << RESET << std::endl;
+            }
+        }
+
+        ~tracer() {
+            if (TRACER_FLAG) {
+                std::clog << GREEN << "LOG: Exiting " << name_ << RESET << std::endl;
+            }
+        }
+
+    };
+
+    // Sets default number of players
     inline constexpr int    kDefaultPlayers = 1;
+
+    // Special "card" indices used in ObservationTensor
     inline constexpr double HIDDEN_CARD = 98.0;
     inline constexpr double NO_CARD     = 99.0;
 
@@ -21,7 +51,6 @@ namespace open_spiel::solitaire {
     int GetIndex (Container container, Element element) {
         return std::distance(std::begin(container), std::find(container.begin(), container.end(), element));
     }
-
 
     const std::vector<std::string> SUITS = {"s", "h", "c", "d"};
     const std::vector<std::string> RANKS = {"A", "2", "3", "4", "5", "6", "7", "8", "9", "T", "J", "Q", "K"};
@@ -319,17 +348,17 @@ namespace open_spiel::solitaire {
 
         // Type Casting ================================================================================================
 
-        explicit operator int() const;  // Represent a card as its integer index
+        explicit operator int() const;                    // Represent a card as its integer index (e.g. As -> 0)
 
         // Operators ===================================================================================================
 
-        bool operator==(Card & other_card) const;                                   // Compare two cards for equality
-        bool operator==(const Card & other_card) const;
+        bool operator==(Card & other_card) const;          // Compare two cards for equality
+        bool operator==(const Card & other_card) const;    // Compare two cards for equality
 
         // Other Methods ===============================================================================================
 
         std::vector<Card> LegalChildren() const;    // Get legal children of the card depending on its location
-        std::string ToString() const;
+        std::string ToString() const;               // Gets human-readable representation of the card as a string
 
     };
 
@@ -341,7 +370,7 @@ namespace open_spiel::solitaire {
         std::deque<Card> cards;             // Holds the card current in the deck
         std::deque<Card> waste;             // Holds the waste cards, the top of which can be played
         std::deque<Card> initial_order;     // Holds the initial order of the deck, so that it can be rebuilt
-        int times_rebuilt = 0;                  // Number of times Rebuild() is called, used for score or terminality
+        int times_rebuilt = 0;              // Number of times Rebuild() is called, used for score or terminality
 
         // Constructors ================================================================================================
 
@@ -361,20 +390,20 @@ namespace open_spiel::solitaire {
 
         // Attributes ==================================================================================================
 
-        const std::string suit;                         // Indicates the suit of cards that can be added
-        std::deque<Card>  cards;                        // Contains the cards inside the foundation
+        const std::string suit;                                // Indicates the suit of cards that can be added
+        std::deque<Card>  cards;                               // Contains the cards inside the foundation
 
         // Constructors ================================================================================================
 
-        Foundation();
-        explicit Foundation(std::string suit);          // Construct an empty foundation of a given suit
+        Foundation();                                          // Default constructor
+        explicit Foundation(std::string suit);                 // Construct an empty foundation of a given suit
 
         // Other Methods ===============================================================================================
 
-        std::vector<Card> Sources() const;              // Cards in the foundation that can be moved
-        std::vector<Card> Targets() const;              // A card in the foundation that can have cards moved to it
+        std::vector<Card> Sources() const;                     // Cards in the foundation that can be moved
+        std::vector<Card> Targets() const;                     // A card in the foundation that can have cards moved to it
 
-        std::vector<Card> Split(Card card);             // Splits on given card and returns it and all cards beneath it
+        std::vector<Card> Split(Card card);                    // Splits on given card and returns it and all cards beneath it
         void Extend(const std::vector<Card>& source_cards);    // Adds cards to the foundation
 
     };
@@ -384,20 +413,20 @@ namespace open_spiel::solitaire {
 
         // Attributes ==================================================================================================
 
-        std::deque<Card> cards;                     // Contains the cards inside the foundation
+        std::deque<Card> cards;                               // Contains the cards inside the foundation
 
         // Constructors ================================================================================================
 
-        Tableau();
-        explicit Tableau(int num_cards);            // Construct a tableau with the given cards
+        Tableau();                                            // Default constructor
+        explicit Tableau(int num_cards);                      // Construct a tableau with the given cards
 
         // Other Methods ===============================================================================================
 
-        std::vector<Card> Sources() const;                // Cards in the foundation that can be moved
-        std::vector<Card> Targets() const;                // A card in the foundation that can have cards moved to it
+        std::vector<Card> Sources() const;                    // Cards in the foundation that can be moved
+        std::vector<Card> Targets() const;                    // A card in the foundation that can have cards moved to it
 
-        std::vector<Card> Split(Card card);       // Splits on given card and returns it and all cards beneath it
-        void Extend(const std::vector<Card>& source_cards);       // Adds cards to the foundation
+        std::vector<Card> Split(Card card);                   // Splits on given card and returns it and all cards beneath it
+        void Extend(const std::vector<Card>& source_cards);   // Adds cards to the foundation
     };
 
     class Move {
@@ -405,20 +434,92 @@ namespace open_spiel::solitaire {
 
         // Attributes ==================================================================================================
 
-        Card target;
-        Card source;
+        Card target;    // The card that the source will be moved to
+        Card source;    // The card that will be moved to the target
 
         // Constructors ================================================================================================
 
-        Move(Card target_card, Card source_card);
-        explicit Move(Action action_id);
+        Move(Card target_card, Card source_card);   // Creates Move object from target and source cards
+        explicit Move(Action action_id);            // Creates Move object from Action kMove... (54 -> 206)
 
         // Other Methods ===============================================================================================
 
-        std::string ToString() const;
-        Action      ActionId() const;
+        std::string ToString() const;       // Gets human-readable representation of the move as a string
+        Action      ActionId() const;       // Gets Action kMove... from the Move object
 
 
+    };
+
+    const std::map<std::pair<std::string, std::string>, int> RANKSUIT_TO_INDEX = {
+            //region Mapping of a pair of rank and suit to a card index
+
+            // Special Cards
+            {std::pair<std::string, std::string>("", "s"), -1},
+            {std::pair<std::string, std::string>("", "h"), -2},
+            {std::pair<std::string, std::string>("", "c"), -3},
+            {std::pair<std::string, std::string>("", "d"), -4},
+            {std::pair<std::string, std::string>("", ""),  -5},
+
+            // Spades
+            {std::pair<std::string, std::string>("A", "s"), 0},
+            {std::pair<std::string, std::string>("2", "s"), 1},
+            {std::pair<std::string, std::string>("3", "s"), 2},
+            {std::pair<std::string, std::string>("4", "s"), 3},
+            {std::pair<std::string, std::string>("5", "s"), 4},
+            {std::pair<std::string, std::string>("6", "s"), 5},
+            {std::pair<std::string, std::string>("7", "s"), 6},
+            {std::pair<std::string, std::string>("8", "s"), 7},
+            {std::pair<std::string, std::string>("9", "s"), 8},
+            {std::pair<std::string, std::string>("T", "s"), 9},
+            {std::pair<std::string, std::string>("J", "s"), 10},
+            {std::pair<std::string, std::string>("Q", "s"), 11},
+            {std::pair<std::string, std::string>("K", "s"), 12},
+
+            // Hearts
+            {std::pair<std::string, std::string>("A", "h"), 13},
+            {std::pair<std::string, std::string>("2", "h"), 14},
+            {std::pair<std::string, std::string>("3", "h"), 15},
+            {std::pair<std::string, std::string>("4", "h"), 16},
+            {std::pair<std::string, std::string>("5", "h"), 17},
+            {std::pair<std::string, std::string>("6", "h"), 18},
+            {std::pair<std::string, std::string>("7", "h"), 19},
+            {std::pair<std::string, std::string>("8", "h"), 20},
+            {std::pair<std::string, std::string>("9", "h"), 21},
+            {std::pair<std::string, std::string>("T", "h"), 22},
+            {std::pair<std::string, std::string>("J", "h"), 23},
+            {std::pair<std::string, std::string>("Q", "h"), 24},
+            {std::pair<std::string, std::string>("K", "h"), 25},
+
+            // Clubs
+            {std::pair<std::string, std::string>("A", "c"), 26},
+            {std::pair<std::string, std::string>("2", "c"), 27},
+            {std::pair<std::string, std::string>("3", "c"), 28},
+            {std::pair<std::string, std::string>("4", "c"), 29},
+            {std::pair<std::string, std::string>("5", "c"), 30},
+            {std::pair<std::string, std::string>("6", "c"), 31},
+            {std::pair<std::string, std::string>("7", "c"), 32},
+            {std::pair<std::string, std::string>("8", "c"), 33},
+            {std::pair<std::string, std::string>("9", "c"), 34},
+            {std::pair<std::string, std::string>("T", "c"), 35},
+            {std::pair<std::string, std::string>("J", "c"), 36},
+            {std::pair<std::string, std::string>("Q", "c"), 37},
+            {std::pair<std::string, std::string>("K", "c"), 38},
+
+            // Diamonds
+            {std::pair<std::string, std::string>("A", "d"), 39},
+            {std::pair<std::string, std::string>("2", "d"), 40},
+            {std::pair<std::string, std::string>("3", "d"), 41},
+            {std::pair<std::string, std::string>("4", "d"), 42},
+            {std::pair<std::string, std::string>("5", "d"), 43},
+            {std::pair<std::string, std::string>("6", "d"), 44},
+            {std::pair<std::string, std::string>("7", "d"), 45},
+            {std::pair<std::string, std::string>("8", "d"), 46},
+            {std::pair<std::string, std::string>("9", "d"), 47},
+            {std::pair<std::string, std::string>("T", "d"), 48},
+            {std::pair<std::string, std::string>("J", "d"), 49},
+            {std::pair<std::string, std::string>("Q", "d"), 50},
+            {std::pair<std::string, std::string>("K", "d"), 51},
+            //endregion
     };
 
     const std::map<std::pair<int, int>, Action> MOVE_TO_ACTION = {
@@ -862,7 +963,7 @@ namespace open_spiel::solitaire {
 
         std::unique_ptr<State>       NewInitialState() const override;
         std::shared_ptr<const Game>  Clone() const override;
-
+        
     private:
         int num_players_;
 

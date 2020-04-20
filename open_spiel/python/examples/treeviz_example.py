@@ -23,6 +23,7 @@ from absl import flags
 from absl import logging
 
 import sys
+
 sys.path.append("/Users/tylerchurchill/CLionProjects/open_spiel")
 sys.path.append("/Users/tylerchurchill/CLionProjects/open_spiel/build/python")
 
@@ -31,12 +32,11 @@ from open_spiel.python.visualizations import treeviz
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string("game", "solitaire", "Name of the game")
-flags.DEFINE_string("out", "/Users/tylerchurchill/CLionProjects/open_spiel/open_spiel/gametree.png", "Name of output file, e.g., "
-                    "[*.png|*.pdf].")
-flags.DEFINE_enum("prog", "dot", ["dot", "neato", "circo"], "Graphviz layout.")
-flags.DEFINE_boolean("group_infosets", False, "Whether to group infosets.")
-flags.DEFINE_boolean("group_terminal", False, "Whether to group terminal nodes.")
-flags.DEFINE_boolean("verbose", False, "Whether to print verbose output.")
+flags.DEFINE_string("out", "/Users/tylerchurchill/CLionProjects/open_spiel/open_spiel/gametree.png", "Name of output file, e.g., [*.png|*.pdf].")
+flags.DEFINE_enum("prog", "circo", ["dot", "neato", "circo"], "Graphviz layout.")
+flags.DEFINE_boolean("group_infosets", True, "Whether to group infosets.")
+flags.DEFINE_boolean("group_terminal", True, "Whether to group terminal nodes.")
+flags.DEFINE_boolean("verbose", True, "Whether to print verbose output.")
 
 
 def _zero_sum_node_decorator(state):
