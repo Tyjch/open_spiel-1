@@ -39,9 +39,9 @@ flags.DEFINE_string("load_state", None, "A file containing a string to load a sp
 
 
 # Seeds: 4
-SEED = 3
+SEED = 2
 np.random.seed(SEED)
-STEP_THROUGH = True
+STEP_THROUGH = False
 
 
 def print_representations(state):
@@ -151,16 +151,13 @@ def main(_):
             print(color("\nReturns : " + returns, fg='green'))
             print(color("Reward  : " + rewards, fg='green'))
 
-            if STEP_THROUGH:
+
+        if STEP_THROUGH:
                 if input("\nPress enter to continue >>>\n") == "":
                     pass
                 else:
                     print('Ending program')
                     break
-
-
-        #print()
-        #print(str(state))
 
 
     # Game is now done. Print utilities for each player
@@ -170,5 +167,8 @@ def main(_):
     for pid in range(game.num_players()):
         print("Utility for player {} is {}".format(pid, returns[pid]))
 
+
 if __name__ == "__main__":
     app.run(main)
+
+

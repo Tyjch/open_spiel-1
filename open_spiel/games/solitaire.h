@@ -9,6 +9,7 @@
 #include <variant>
 #include <any>
 #include <unordered_map>
+#include <set>
 #include "open_spiel/spiel.h"
 
 #define RESET   "\033[0m"
@@ -21,6 +22,7 @@ namespace open_spiel::solitaire {
 
     // Function Call Tracer for Debugging in Python
 
+    /*
     bool TRACER_FLAG = false;
     struct tracer {
 
@@ -39,6 +41,7 @@ namespace open_spiel::solitaire {
         }
 
     };
+    */
 
     // Sets default number of players
     inline constexpr int    kDefaultPlayers = 1;
@@ -71,7 +74,6 @@ namespace open_spiel::solitaire {
             {"K", 10.0}
             //endregion
     };
-
 
     // Enumerations ====================================================================================================
 
@@ -940,6 +942,7 @@ namespace open_spiel::solitaire {
         bool   is_reversible = false;
         int    draw_counter = 0;
         double previous_score;
+        std::set<std::size_t> previous_states = {};
 
     };
 

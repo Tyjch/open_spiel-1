@@ -27,6 +27,7 @@ from absl import app
 from absl import flags
 from absl import logging
 import six
+import sys
 
 import tensorflow.compat.v1 as tf
 
@@ -38,9 +39,10 @@ import pyspiel
 #endregion
 
 FLAGS = flags.FLAGS
+sys.setrecursionlimit(2000)
 
-flags.DEFINE_integer("num_iterations", 10, "Number of iterations")
-flags.DEFINE_integer("num_traversals", 10, "Number of traversals/games")
+flags.DEFINE_integer("num_iterations", 1, "Number of iterations")
+flags.DEFINE_integer("num_traversals", 1, "Number of traversals/games")
 flags.DEFINE_string("game_name", "solitaire", "Name of the game")
 
 

@@ -79,14 +79,18 @@ int RandomSimulation(std::mt19937* rng, const Game& game, bool verbose) {
       // Sample an action uniformly.
       std::vector<Action> actions = state->LegalActions();
       std::uniform_int_distribution<int> dis(0, actions.size() - 1);
-      Action action = actions[dis(*rng)];
-      if (verbose) {
-        int p = state->CurrentPlayer();
-        std::cout << "Player " << p
-                  << " chose action: " << state->ActionToString(p, action)
-                  << std::endl;
+      if (not actions.empty()) {
+          Action action = actions[dis(*rng)];
+          if (verbose) {
+              int p = state->CurrentPlayer();
+              std::cout << "Player " << p
+                        << " chose action: " << state->ActionToString(p, action)
+                        << std::endl;
+          }
+          state->ApplyAction(action);
+      } else {
+          break;
       }
-      state->ApplyAction(action);
     }
     if (verbose) {
       std::cout << "State: " << std::endl << state->ToString() << std::endl;

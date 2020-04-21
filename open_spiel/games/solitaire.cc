@@ -6,6 +6,7 @@
 #include <optional>
 #include <utility>
 #include <math.h>
+#include <unordered_map>
 
 #include "open_spiel/abseil-cpp/absl/strings/str_join.h"
 #include "open_spiel/game_parameters.h"
@@ -107,6 +108,13 @@
 
 */
 
+/* IDEAS
+   - One way to test if the game tree is complete (kind of) is to search the game with no
+     restrictions to a large depth. Record the maximum return in that simulation. Then search
+     the tree with restrictions (so it terminates), ensuring that with restrictions doesn't
+     limit the maximum return.
+*/
+
 namespace open_spiel::solitaire {
 
     namespace {
@@ -134,17 +142,19 @@ namespace open_spiel::solitaire {
         REGISTER_SPIEL_GAME(kGameType, Factory)
     }
 
-    // Miscellaneous Functions =========================================================================================
+    // Miscellaneous ===================================================================================================
 
-    bool COLOR_FLAG = false;
+    std::hash<std::string> hasher;
+
+    bool COLOR_FLAG = true;
 
     std::string color(std::string color) {
-        return COLOR_FLAG ? color : "";
+        return COLOR_FLAG ? std::move(color) : "";
     }
 
     std::vector<std::string> GetOppositeSuits(const std::string & suit) {
 
-        tracer trace("GetOppositeSuits()");
+        // tracer trace("GetOppositeSuits()");
 
         if (suit == "s" or suit == "c") {
             return {"h", "d"};
@@ -158,7 +168,7 @@ namespace open_spiel::solitaire {
 
     std::string LocationString(Location location) {
 
-        tracer trace("LocationString()");
+        // tracer trace("LocationString()");
 
         switch (location) {
             case kDeck : {
@@ -185,7 +195,7 @@ namespace open_spiel::solitaire {
     std::vector<double> ToCardIndices(const std::deque<Card> & pile, int length) {
         // TODO: Handle empty piles
 
-        tracer trace("ToCardIndices()");
+        // tracer trace("ToCardIndices()");
 
         std::vector<double> index_vector;
         for (auto & card : pile) {
@@ -208,16 +218,16 @@ namespace open_spiel::solitaire {
         suit(std::move(suit)),
         hidden(true),
         location(kMissing) {
-        tracer trace("Card(rank, suit)");
+        // tracer trace("Card(rank, suit)");
     }
 
     Card::Card() : rank(""), suit(""), hidden(true), location(kMissing) {
-        tracer trace("Card()");
+        // tracer trace("Card()");
     }
 
     Card::Card(int index) : hidden(false), location(kMissing) {
 
-        tracer trace("Card(int index)");
+        // tracer trace("Card(int index)");
 
         // Handles special cards
         if (index < 0) {
@@ -247,7 +257,7 @@ namespace open_spiel::solitaire {
     Card::operator int() const {
         // OPTIMIZE: This shouldn't have to recalculate the index after it's been set once before.
 
-        tracer trace("Card::operator int()");
+        // tracer trace("Card::operator int()");
 
         // NEW WAY OF GETTING INDEX
         std::pair<std::string, std::string> ranksuit = {rank, suit};
@@ -289,18 +299,18 @@ namespace open_spiel::solitaire {
     }
 
     bool Card::operator==(Card & other_card) const {
-        // tracer trace("Card::operator==");
+        // // tracer trace("Card::operator==");
         return rank == other_card.rank and suit == other_card.suit;
     }
 
     bool Card::operator==(const Card & other_card) const {
-        // tracer trace("Card::operator==");
+        // // tracer trace("Card::operator==");
         return rank == other_card.rank and suit == other_card.suit;
     }
 
     std::vector<Card> Card::LegalChildren() const {
 
-        tracer trace("LegalChildren()");
+        // tracer trace("LegalChildren()");
 
         std::vector<Card>        legal_children = {};
         std::string              child_rank;
@@ -356,8 +366,9 @@ namespace open_spiel::solitaire {
     }
 
     std::string Card::ToString() const {
+        // TODO: Don't include formatting whitespace in this method
 
-        tracer trace("Card::ToString()");
+        // tracer trace("Card::ToString()");
 
         std::string result;
 
@@ -402,7 +413,7 @@ namespace open_spiel::solitaire {
 
         }
 
-        absl::StrAppend(&result, color(RESET), " ");
+        absl::StrAppend(&result, color(RESET));
         return result;
     }
 
@@ -410,7 +421,7 @@ namespace open_spiel::solitaire {
 
     Deck::Deck() {
 
-        tracer trace("Deck()");
+        // tracer trace("Deck()");
 
         for (int i = 1; i <= 24; i++) {
             cards.emplace_back();
@@ -422,7 +433,7 @@ namespace open_spiel::solitaire {
 
     std::vector<Card> Deck::Sources() const {
 
-        tracer trace("Deck::Sources()");
+        // tracer trace("Deck::Sources()");
 
         // TODO: Can simplify this if statement
         // If the waste is not empty, sources is just a vector of the top card of the waste
@@ -442,7 +453,7 @@ namespace open_spiel::solitaire {
 
     std::vector<Card> Deck::Split(Card card) {
 
-        tracer trace("Deck::Split()");
+        // tracer trace("Deck::Split()");
 
         std::vector<Card> split_cards;
         if (waste.front() == card) {
@@ -454,7 +465,7 @@ namespace open_spiel::solitaire {
 
     void Deck::draw(unsigned long num_cards) {
 
-        tracer trace("Deck::draw()");
+        // tracer trace("Deck::draw()");
 
         std::deque<Card> drawn_cards;
         num_cards = std::min(num_cards, cards.size());
@@ -473,7 +484,7 @@ namespace open_spiel::solitaire {
 
     void Deck::rebuild() {
 
-        tracer trace("Deck::rebuild()");
+        // tracer trace("Deck::rebuild()");
 
         // TODO: Make sure cards and initial_order are never both empty at the same time.
         if (cards.empty()) {
@@ -493,18 +504,18 @@ namespace open_spiel::solitaire {
     // Foundation Methods ==============================================================================================
 
     Foundation::Foundation() {
-        tracer trace("Foundation()");
+        // tracer trace("Foundation()");
         cards = {};
     }
 
     Foundation::Foundation(std::string suit) : suit(std::move(suit)) {
-        tracer trace("Foundation(suit)");
+        // tracer trace("Foundation(suit)");
         cards = {};
     }
 
     std::vector<Card> Foundation::Sources() const {
 
-        tracer trace("Foundation::Sources()");
+        // tracer trace("Foundation::Sources()");
 
         // If the foundation is not empty, sources is just a vector of the top card of the foundation
         if (not cards.empty()) {
@@ -518,7 +529,7 @@ namespace open_spiel::solitaire {
 
     std::vector<Card> Foundation::Targets() const {
 
-        tracer trace("Foundation::Targets()");
+        // tracer trace("Foundation::Targets()");
 
         // If the foundation is not empty, targets is just the top card of the foundation
         if (not cards.empty()) {
@@ -535,7 +546,7 @@ namespace open_spiel::solitaire {
 
     std::vector<Card> Foundation::Split(Card card) {
 
-        tracer trace("Foundation::Split()");
+        // tracer trace("Foundation::Split()");
 
         std::vector<Card> split_cards;
         if (cards.back() == card) {
@@ -547,7 +558,7 @@ namespace open_spiel::solitaire {
 
     void Foundation::Extend(const std::vector<Card> & source_cards) {
 
-        tracer trace("Foundation::Extend()");
+        // tracer trace("Foundation::Extend()");
 
         // TODO: Can only extend with ordinary cards
         // TODO: Probably no use for setting hidden to false.
@@ -561,12 +572,12 @@ namespace open_spiel::solitaire {
     // Tableau Methods =================================================================================================
 
     Tableau::Tableau() {
-        tracer trace("Tableau()");
+        // tracer trace("Tableau()");
     }
 
     Tableau::Tableau(int num_cards) {
 
-        tracer trace("Tableau(num_cards)");
+        // tracer trace("Tableau(num_cards)");
 
         for (int i = 1; i <= num_cards; i++) {
             cards.emplace_back();
@@ -578,7 +589,7 @@ namespace open_spiel::solitaire {
 
     std::vector<Card> Tableau::Sources() const {
 
-        tracer trace("Tableau::Sources()");
+        // tracer trace("Tableau::Sources()");
 
         // If the tableau is not empty, sources is just a vector of all cards that are not hidden
         if (not cards.empty()) {
@@ -600,7 +611,7 @@ namespace open_spiel::solitaire {
         // DECISION: Should targets return a vector, even though it will only return one card?
         // If the tableau is not empty, targets is just a vector of the top card of the tableau
 
-        tracer trace("Tableau::Targets()");
+        // tracer trace("Tableau::Targets()");
 
         if (not cards.empty()) {
             if (cards.back().hidden) {
@@ -622,7 +633,7 @@ namespace open_spiel::solitaire {
 
         // TODO: How to handle a split when card isn't in this tableau?
 
-        tracer trace("Tableau::Split()");
+        // tracer trace("Tableau::Split()");
 
         std::vector<Card> split_cards;
         if (not cards.empty()) {
@@ -647,7 +658,7 @@ namespace open_spiel::solitaire {
 
     void Tableau::Extend(const std::vector<Card> & source_cards) {
 
-        tracer trace("Tableau::Extend()");
+        // tracer trace("Tableau::Extend()");
 
         for (auto card : source_cards) {
             card.location = kTableau;
@@ -658,27 +669,27 @@ namespace open_spiel::solitaire {
     // Move Methods ====================================================================================================
 
     Move::Move(Card target_card, Card source_card) {
-        tracer trace("Move(target_card, source_card");
+        // tracer trace("Move(target_card, source_card");
         target = std::move(target_card);
         source = std::move(source_card);
     }
 
     Move::Move(Action action_id) {
-        tracer trace("Move(action_id)");
+        // tracer trace("Move(action_id)");
         auto card_pair = ACTION_TO_MOVE.at(action_id);
         target = Card(card_pair.first);
         source = Card(card_pair.second);
     }
 
     std::string Move::ToString() const {
-        tracer trace("Move::ToString()");
+        // tracer trace("Move::ToString()");
         std::string result;
-        absl::StrAppend(&result, target.ToString(), "\U00002190", " ",source.ToString());
+        absl::StrAppend(&result, target.ToString(), " ", "\U00002190", " ",source.ToString());
         return result;
     }
 
     Action Move::ActionId() const {
-        tracer trace("Move::ActionId()");
+        // tracer trace("Move::ActionId()");
         return MOVE_TO_ACTION.at(std::make_pair((int) target, (int) source));
     }
 
@@ -689,7 +700,7 @@ namespace open_spiel::solitaire {
         deck(),
         foundations(),
         tableaus() {
-            tracer trace("SolitaireState(game)");
+            // tracer trace("SolitaireState(game)");
             is_started = false;
             is_setup = false;
             previous_score = 0.0;
@@ -699,7 +710,7 @@ namespace open_spiel::solitaire {
 
     Player                  SolitaireState::CurrentPlayer() const {
 
-        tracer trace("SolitaireState::CurrentPlayer()");
+        // tracer trace("SolitaireState::CurrentPlayer()");
 
         // There are only two players in this game: chance and player 1.
         if (IsChanceNode()) {
@@ -713,16 +724,19 @@ namespace open_spiel::solitaire {
 
     std::unique_ptr<State>  SolitaireState::Clone() const {
 
-        tracer trace("SolitaireState::Clone()");
+        // tracer trace("SolitaireState::Clone()");
         return std::unique_ptr<State>(new SolitaireState(*this));
 
     }
 
     bool                    SolitaireState::IsTerminal() const {
 
-        tracer trace("SolitaireState::IsTerminal()");
+        // tracer trace("SolitaireState::IsTerminal()");
+
+        // WARNING: Can't depend on LegalActions here as that already references IsTerminal.
 
         if (is_finished or draw_counter >= 8) {
+            std::cout << "State is terminal because `is_finished` or `draw_counter >= 8" << std::endl;
             return true;
         }
 
@@ -733,13 +747,20 @@ namespace open_spiel::solitaire {
 
             for (auto action : recent_history) {
                 if (action != kDraw) {
+                    // std::cout << "State is NOT terminal because a non-draw has occured in the last 8 actions" << std::endl;
                     return false;
                 }
             }
 
             // If all 8 recent actions are kDraw, then the state is terminal
+            std::cout << "State is terminal because last 8 actions were draw" << std::endl;
             return true;
 
+        }
+
+        else if (LegalActions().empty()) {
+            std::cout << "State is terminal because there are no more legal actions" << std::endl;
+            return true;
         }
 
         else {
@@ -750,7 +771,7 @@ namespace open_spiel::solitaire {
 
     bool                    SolitaireState::IsChanceNode() const {
 
-        tracer trace("SolitaireState::IsChanceNode()");
+        // tracer trace("SolitaireState::IsChanceNode()");
 
         if (not is_setup) {
             // If setup is not started, this is a chance node
@@ -786,29 +807,27 @@ namespace open_spiel::solitaire {
 
     std::string             SolitaireState::ToString() const {
 
-        tracer trace("SolitaireState::ToString()");
+        // tracer trace("SolitaireState::ToString()");
 
         std::string result;
 
-        //absl::StrAppend(&result, "\nIS_SETUP       : ", is_setup);
-        //absl::StrAppend(&result, "\nIS_STARTED     : ", is_started);
+        absl::StrAppend(&result, "DRAW COUNTER    : ", draw_counter);
 
-        //absl::StrAppend(&result, "\nCURRENT PLAYER : ", CurrentPlayer());
-        //absl::StrAppend(&result, "\nDRAW COUNTER   : ", draw_counter);
+        absl::StrAppend(&result, "\nIS REVERSIBLE   : ", is_reversible);
 
         absl::StrAppend(&result, "\n\nDECK        : ");
         for (const Card & card : deck.cards) {
-            absl::StrAppend(&result, card.ToString());
+            absl::StrAppend(&result, card.ToString(), " ");
         }
 
         absl::StrAppend(&result, "\nWASTE       : ");
         for (const Card & card : deck.waste) {
-            absl::StrAppend(&result, card.ToString());
+            absl::StrAppend(&result, card.ToString(), " ");
         }
 
         absl::StrAppend(&result, "\nORDER       : ");
         for (const Card & card : deck.initial_order) {
-            absl::StrAppend(&result, card.ToString());
+            absl::StrAppend(&result, card.ToString(), " ");
         }
 
         absl::StrAppend(&result, "\nFOUNDATIONS : ");
@@ -816,9 +835,9 @@ namespace open_spiel::solitaire {
             if (foundation.cards.empty()) {
                 Card foundation_base = Card("", foundation.suit);
                 foundation_base.hidden = false;
-                absl::StrAppend(&result, foundation_base.ToString());
+                absl::StrAppend(&result, foundation_base.ToString(), " ");
             } else {
-                absl::StrAppend(&result, foundation.cards.back().ToString());
+                absl::StrAppend(&result, foundation.cards.back().ToString(), " ");
             }
         }
 
@@ -827,10 +846,19 @@ namespace open_spiel::solitaire {
             if (not tableau.cards.empty()) {
                 absl::StrAppend(&result, "\n");
                 for (const Card & card : tableau.cards) {
-                    absl::StrAppend(&result, card.ToString());
+                    absl::StrAppend(&result, card.ToString(), " ");
                 }
             }
         }
+
+        /*
+        if (not previous_states.empty()) {
+            absl::StrAppend(&result, "\n\nPREVIOUS_STATES : ");
+            for (const auto & hash : previous_states) {
+                absl::StrAppend(&result, "\n", hash);
+            }
+        }
+        */
 
         /*
         absl::StrAppend(&result, "\n\nTARGETS : ");
@@ -856,7 +884,7 @@ namespace open_spiel::solitaire {
     std::string             SolitaireState::ActionToString(Player player, Action action_id) const {
         // TODO: Probably use the enum names instead of the values the represent
 
-        tracer trace("SolitaireState::ActionToString()");
+        // tracer trace("SolitaireState::ActionToString()");
 
         switch (action_id) {
             case kSetup : {
@@ -892,25 +920,27 @@ namespace open_spiel::solitaire {
     }
 
     std::string             SolitaireState::InformationStateString(Player player) const {
-        tracer trace("SolitaireState::InformationStateString()");
+        // tracer trace("SolitaireState::InformationStateString()");
         return HistoryString();
     }
 
     std::string             SolitaireState::ObservationString(Player player) const {
 
-        tracer trace("SolitaireState::ObservationString()");
+        // tracer trace("SolitaireState::ObservationString()");
 
         std::string result;
 
+        /*
         absl::StrAppend(&result, "\n\nDECK        : ");
         for (const Card & card : deck.cards) {
-            absl::StrAppend(&result, card.ToString());
+            absl::StrAppend(&result, card.ToString(), " ");
         }
 
         absl::StrAppend(&result, "\nWASTE       : ");
         for (const Card & card : deck.waste) {
-            absl::StrAppend(&result, card.ToString());
+            absl::StrAppend(&result, card.ToString(), " ");
         }
+        */
 
         absl::StrAppend(&result, "\nFOUNDATIONS : ");
         for (const Foundation & foundation : foundations) {
@@ -919,7 +949,7 @@ namespace open_spiel::solitaire {
                 foundation_base.hidden = false;
                 absl::StrAppend(&result, foundation_base.ToString());
             } else {
-                absl::StrAppend(&result, foundation.cards.back().ToString());
+                absl::StrAppend(&result, foundation.cards.back().ToString(), " ");
             }
         }
 
@@ -928,7 +958,7 @@ namespace open_spiel::solitaire {
             if (not tableau.cards.empty()) {
                 absl::StrAppend(&result, "\n");
                 for (const Card & card : tableau.cards) {
-                    absl::StrAppend(&result, card.ToString());
+                    absl::StrAppend(&result, card.ToString(), " ");
                 }
             }
         }
@@ -939,7 +969,7 @@ namespace open_spiel::solitaire {
 
     void                    SolitaireState::InformationStateTensor(Player player, std::vector<double> *values) const {
 
-        tracer trace("SolitaireState::InformationStateTensor()");
+        // tracer trace("SolitaireState::InformationStateTensor()");
 
         values->resize(game_->InformationStateTensorShape()[0]);
         std::fill(values->begin(), values->end(), kInvalidAction);
@@ -956,7 +986,7 @@ namespace open_spiel::solitaire {
 
         // TODO: Not sure if any pile being empty would have an effect on the final result
 
-        tracer trace("SolitaireState::ObservationTensor()");
+        // tracer trace("SolitaireState::ObservationTensor()");
 
         for (const auto & tableau : tableaus) {
             std::vector<double> tableau_obs = ToCardIndices(tableau.cards, 19);
@@ -980,7 +1010,7 @@ namespace open_spiel::solitaire {
 
         // Set previous_score to be equal to the returns from this state
 
-        tracer trace("SolitaireState::DoApplyAction()");
+        // tracer trace("SolitaireState::DoApplyAction()");
 
         previous_score = Returns().front();
 
@@ -1115,13 +1145,21 @@ namespace open_spiel::solitaire {
 
         // Handles kMove
         else {
-            
-            // Create a move from the action id provided by 'move'
 
+            // Create a move from the action id provided by 'move'
             Move selected_move = Move(move);
 
             // If the move we are about to execute is reversible, set to true, else set to false
             is_reversible = IsReversible(selected_move);
+
+            if (is_reversible) {
+                // If a move being executed is reversible, we need to hash its state and store it
+                std::string current_observation = ObservationString(CurrentPlayer());
+                previous_states.insert(hasher(current_observation));
+            } else {
+                // If it's not hashable, then we need to clear all the hashes in previous states
+                previous_states.clear();
+            }
 
             // Execute the selected move
             MoveCards(selected_move);
@@ -1156,14 +1194,12 @@ namespace open_spiel::solitaire {
             is_finished = true;
         }
 
-
-
     }
 
     std::vector<double>     SolitaireState::Returns() const {
         // Equal to the sum of all rewards up to the current state
 
-        tracer trace("SolitaireState::Returns()");
+        // tracer trace("SolitaireState::Returns()");
 
         if (is_started) {
 
@@ -1217,7 +1253,7 @@ namespace open_spiel::solitaire {
         // Highest possible reward per action is 120.0 (e.g. ♠ ← As where As is on a hidden card)
         // Lowest possible reward per action is -100.0 (e.g. 2h ← As where As is in foundation initially) */
 
-        tracer trace("SolitaireState::Rewards()");
+        // tracer trace("SolitaireState::Rewards()");
 
         if (is_started) {
             std::vector<double> current_returns = Returns();
@@ -1230,41 +1266,62 @@ namespace open_spiel::solitaire {
     }
 
     std::vector<Action>     SolitaireState::LegalActions() const {
+        // TODO: LegalActions needs to sort before returning. (i.e. kDraw must always come before all kMoves)
 
-        tracer trace("SolitaireState::LegalActions()");
+        // tracer trace("SolitaireState::LegalActions()");
 
-        if (IsTerminal()) {
-            return {};
-        }
+        //if (IsTerminal()) {
+        //    return {};
+        //}
 
-        else {
-            // TODO: What is CandidateMoves() is empty?
+        std::vector<Action> legal_actions;
 
-            std::vector<Action> legal_actions;
+        for (const auto & move : CandidateMoves()) {
 
-            for (const auto & move : CandidateMoves()) {
+                // If the state is reversible ...
                 if (is_reversible) {
+
+                    // And the candidate move is reversible ...
                     if (IsReversible(move)) {
-                        continue;
-                    } else {
+
+                        // Then get the resulting state
+                        auto child = Child(move.ActionId());
+
+                        // Then get the hash of the child state
+                        auto child_hash = hasher(child->ObservationString());
+
+                        // If the child state is in previous_states, then it forms a loop
+                        if (previous_states.count(child_hash) > 0) {
+                            continue;
+                        }
+
+                        // Otherwise, it doesn't form a loop and we can add it to legal actions
+                        else {
+                            legal_actions.push_back(move.ActionId());
+                        }
+
+                    }
+                    // And the candidate move is not reversible ...
+                    else {
                         legal_actions.push_back(move.ActionId());
                     }
+
                 } else {
                     legal_actions.push_back(move.ActionId());
                 }
             }
 
-            if (deck.cards.size() + deck.waste.size() > 0 and draw_counter < 8) {
+        if (deck.cards.size() + deck.waste.size() > 0 and draw_counter < 8) {
                 legal_actions.push_back(kDraw);
             }
 
-            return legal_actions;
-        }
+        return legal_actions;
+
     }
 
     std::vector<std::pair<Action, double>> SolitaireState::ChanceOutcomes() const {
 
-        tracer trace("SolitaireState::ChanceOutcomes()");
+        // tracer trace("SolitaireState::ChanceOutcomes()");
 
         if (!is_setup) {
             return {{kSetup, 1.0}};
@@ -1287,7 +1344,7 @@ namespace open_spiel::solitaire {
 
     std::vector<Card>       SolitaireState::Targets(const std::optional<std::string> & location) const {
 
-        tracer trace("SolitaireState::Targets()");
+        // tracer trace("SolitaireState::Targets()");
 
         std::string loc = location.value_or("all");
         std::vector<Card> targets;
@@ -1315,7 +1372,7 @@ namespace open_spiel::solitaire {
 
     std::vector<Card>       SolitaireState::Sources(const std::optional<std::string> & location) const {
 
-        tracer trace("SolitaireState::Sources()");
+        // tracer trace("SolitaireState::Sources()");
 
         std::string loc = location.value_or("all");
         std::vector<Card> sources;
@@ -1348,7 +1405,7 @@ namespace open_spiel::solitaire {
 
     std::vector<Move>       SolitaireState::CandidateMoves() const {
 
-        tracer trace("SolitaireState::CandidateMoves()");
+        // tracer trace("SolitaireState::CandidateMoves()");
 
         std::vector<Move> candidate_moves;
         std::vector<Card> targets = Targets();
@@ -1396,7 +1453,7 @@ namespace open_spiel::solitaire {
 
     Tableau *               SolitaireState::FindTableau(const Card & card) const {
 
-        tracer trace("SolitaireState::FindTableau()");
+        // tracer trace("SolitaireState::FindTableau()");
 
         if (card.rank.empty() and card.suit.empty()) {
             for (auto & tableau : tableaus) {
@@ -1420,7 +1477,7 @@ namespace open_spiel::solitaire {
 
     Foundation *            SolitaireState::FindFoundation(const Card & card) const {
 
-        tracer trace("SolitaireState::FindFoundation()");
+        // tracer trace("SolitaireState::FindFoundation()");
 
         if (card.rank.empty()) {
             for (auto & foundation : foundations) {
@@ -1444,7 +1501,7 @@ namespace open_spiel::solitaire {
     Location                SolitaireState::FindLocation(const Card & card) const {
         // OPTIMIZE: Shouldn't have to iterate through all piles just to find a card
 
-        tracer trace("SolitaireState::FindLocation()");
+        // tracer trace("SolitaireState::FindLocation()");
 
         // Handles special cards
         if (card.rank.empty()) {
@@ -1486,7 +1543,7 @@ namespace open_spiel::solitaire {
 
     void                    SolitaireState::MoveCards(const Move & move) {
 
-        tracer trace("SolitaireState::MoveCards()");
+        // tracer trace("SolitaireState::MoveCards()");
 
         // Unpack target and source from move
         Card target = move.target;
@@ -1538,7 +1595,7 @@ namespace open_spiel::solitaire {
 
     bool                    SolitaireState::IsOverHidden(const Card & card) const {
 
-        tracer trace("SolitaireState::IsOverHidden()");
+        // tracer trace("SolitaireState::IsOverHidden()");
 
         if (card.location == kTableau) {
             auto container = FindTableau(card);
@@ -1552,7 +1609,7 @@ namespace open_spiel::solitaire {
 
     bool                    SolitaireState::IsReversible(const Move & move) const {
 
-        tracer trace("SolitaireState::IsReversible()");
+        // tracer trace("SolitaireState::IsReversible()");
 
         Card target = move.target;
         Card source = move.source;
@@ -1589,7 +1646,7 @@ namespace open_spiel::solitaire {
 
     bool                    SolitaireState::IsBottomCard(Card card) const {
 
-        tracer trace("SolitaireState::IsBottomCard()");
+        // tracer trace("SolitaireState::IsBottomCard()");
 
         // Only implemented for cards in a tableau at the moment.
         if (card.location == kTableau) {
@@ -1609,7 +1666,7 @@ namespace open_spiel::solitaire {
         // Assumes that card is found in a container, meaning container.back() will be defined
         // This isn't true for special cards (e.g. Card("", "") or Card("", "s") etc.)
 
-        tracer trace("SolitaireState::IsTopCard()");
+        // tracer trace("SolitaireState::IsTopCard()");
 
         std::deque<Card> container;
         switch (card.location) {
@@ -1633,7 +1690,7 @@ namespace open_spiel::solitaire {
 
     bool                    SolitaireState::IsSolvable() const {
 
-        tracer trace("SolitaireState::IsSolvable()");
+        // tracer trace("SolitaireState::IsSolvable()");
 
         if (deck.cards.empty() and deck.waste.empty()) {
             for (auto & tableau : tableaus) {
@@ -1687,7 +1744,7 @@ namespace open_spiel::solitaire {
     }
 
     std::vector<int> SolitaireGame::InformationStateTensorShape() const {
-        return {1000};
+        return {2000};
     }
 
     std::vector<int> SolitaireGame::ObservationTensorShape() const {
@@ -1701,8 +1758,6 @@ namespace open_spiel::solitaire {
     std::shared_ptr<const Game> SolitaireGame::Clone() const {
         return std::shared_ptr<const Game>(new SolitaireGame(*this));
     }
-
-
 
 } // namespace open_spiel::solitaire
 

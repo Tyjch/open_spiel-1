@@ -41,9 +41,9 @@ import sys
 tf.logging.set_verbosity(tf.logging.ERROR)
 
 STEP_THROUGH  = False
-CHANCE_FLAG   = True
-DECISION_FLAG = True
-TERMINAL_FLAG = True
+CHANCE_FLAG   = False
+DECISION_FLAG = False
+TERMINAL_FLAG = False
 
 counter = 0
 def checkpoint(flag=True):
@@ -315,6 +315,9 @@ class DeepCFRSolver(policy.Policy):
 
             checkpoint(flag=TERMINAL_FLAG)
 
+            if TERMINAL_FLAG:
+                print(str(state))
+
             print("Returns :", state.returns()[player])
 
             return state.returns()[player]
@@ -384,7 +387,9 @@ class DeepCFRSolver(policy.Policy):
             2. (list) Matched regrets, prob for actions indexed by action.
         """
 
+
         info_state    = state.information_state_tensor(player)
+        num_steps     = len(info_state[0:info_state.index(-1)])
         legal_actions = state.legal_actions(player)
 
         advantages = self._session.run(
